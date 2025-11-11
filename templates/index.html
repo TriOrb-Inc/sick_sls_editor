@@ -1,0 +1,2335 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SICK SLS Editor (Web)</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.ico') }}" />
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", "Yu Gothic UI", system-ui, -apple-system, sans-serif;
+      }
+
+
+      body {
+        margin: 0;
+        background: #eef1f5;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        background: #0b6fb8;
+        color: #fff;
+        padding: 1.5rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      }
+
+      header p {
+        margin: 0.2rem 0 0;
+      }
+
+      main {
+        max-width: 1200px;
+        width: 100%;
+        margin: 2rem auto;
+        padding: 1.5rem;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
+        flex: 1;
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-start;
+      }
+
+      .content-area {
+        flex: 1 1 65%;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      button,
+      label.upload-btn,
+      .inline-btn {
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+        background: #0b6fb8;
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+      }
+
+      button.secondary {
+        background: #475569;
+      }
+
+      .inline-btn.inline-danger {
+        background: #c53030;
+      }
+      label.upload-btn {
+        position: relative;
+      }
+
+      label.upload-btn input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      #status-text {
+        margin-left: auto;
+        font-size: 0.9rem;
+        color: #475569;
+      }
+
+      #status-text[data-state="error"] {
+        color: #c53030;
+      }
+
+      #status-text[data-state="warning"] {
+        color: #d97706;
+      }
+
+      .plot-wrapper {
+        width: 100%;
+        max-width: 900px;
+        aspect-ratio: 1 / 1;
+      }
+
+      #plot {
+        width: 100%;
+        height: 100%;
+        min-height: 520px;
+      }
+
+      .side-menu {
+        flex: 0 0 auto;
+        min-width: 220px;
+        max-width: 40%;
+        width: fit-content;
+        background: #f6f8fb;
+        border-radius: 10px;
+        padding: 1rem;
+        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05);
+      }
+
+      .side-menu h2 {
+        font-size: 1rem;
+        margin: 0 0 0.75rem;
+        color: #1f2937;
+      }
+
+      .menu-section {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        background: #fff;
+      }
+
+      .menu-section summary {
+        cursor: pointer;
+        padding: 0.6rem 0.8rem;
+        font-weight: 600;
+        color: #0b6fb8;
+        list-style: none;
+      }
+
+      .menu-section summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .menu-section summary::after {
+        content: "+";
+        float: right;
+        font-weight: normal;
+        color: #64748b;
+      }
+
+      .menu-section[open] summary::after {
+        content: "-";
+      }
+
+      .menu-content {
+        padding: 0.6rem 0.8rem 1rem;
+        color: #475569;
+        font-size: 0.9rem;
+        border-top: 1px solid rgba(15, 23, 42, 0.06);
+      }
+
+      .menu-description {
+        margin: 0 0 0.6rem;
+        color: #1f2937;
+        font-weight: 500;
+      }
+
+      .menu-fileinfo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.7rem 1rem;
+      }
+
+      .menu-fileinfo-field label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      .menu-fileinfo-field input {
+        width: 100%;
+        border-radius: 6px;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        padding: 0.45rem 0.6rem;
+        font-size: 0.9rem;
+        background: #fff;
+      }
+
+      .triorb-field label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      .triorb-field input,
+      .triorb-field select {
+        width: 100%;
+        border-radius: 6px;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        padding: 0.45rem 0.6rem;
+        font-size: 0.9rem;
+        background: #e6f2ff;
+      }
+
+      .menu-fileinfo-field input:focus,
+      .scanplane-card input:focus,
+      .device-card input:focus,
+      .fieldset-field input:focus,
+      .field-attribute input:focus {
+        outline: 2px solid rgba(11, 111, 184, 0.35);
+        border-color: rgba(11, 111, 184, 0.65);
+      }
+
+      .scanplanes-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .scanplane-card,
+      .device-card {
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 8px;
+        padding: 0.6rem;
+        background: #fefefe;
+      }
+
+      .scanplane-details summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #0b6fb8;
+        cursor: pointer;
+      }
+
+      .scanplane-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .scanplane-summary {
+        font-size: 0.85rem;
+        color: #475569;
+      }
+
+      .scanplane-fields,
+      .device-fields {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.4rem 0.6rem;
+      }
+
+      .scanplane-field,
+      .device-field {
+        display: flex;
+        flex-direction: column;
+        font-size: 0.85rem;
+      }
+
+      .scanplane-field label,
+      .device-field label {
+        margin-bottom: 0.2rem;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      .scanplane-field input,
+      .device-field input {
+        border-radius: 6px;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        padding: 0.35rem 0.45rem;
+        font-size: 0.85rem;
+      }
+
+      .device-card {
+        margin-top: 0.5rem;
+        background: #fff;
+      }
+
+      .device-details summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #334155;
+        cursor: pointer;
+      }
+
+      .device-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .device-summary {
+        font-size: 0.8rem;
+        color: #64748b;
+      }
+
+      select {
+        background: #e6f2ff;
+      }
+
+      .fieldsets-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .fieldset-card {
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 8px;
+        padding: 0.6rem;
+        background: #fff;
+      }
+
+      .fieldset-details summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #0d4b91;
+        cursor: pointer;
+      }
+
+      .fieldset-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .fieldset-summary {
+        font-size: 0.8rem;
+        color: #475569;
+        margin-left: 0.5rem;
+      }
+
+      .fieldset-fields,
+      .field-attributes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.5rem;
+      }
+
+      .fieldset-field,
+      .field-attribute {
+        display: flex;
+        flex-direction: column;
+        font-size: 0.85rem;
+      }
+
+      .fieldset-field label,
+      .field-attribute label {
+        margin-bottom: 0.2rem;
+        font-weight: 600;
+        color: #475569;
+      }
+
+      .fieldset-field input,
+      .field-attribute input {
+        border-radius: 6px;
+        border: 1px solid rgba(15, 23, 42, 0.2);
+        padding: 0.35rem 0.45rem;
+        font-size: 0.85rem;
+      }
+
+      .field-card {
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 8px;
+        padding: 0.5rem;
+        background: #fefefe;
+        margin-top: 0.5rem;
+      }
+
+      .field-details summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #0d4b91;
+        cursor: pointer;
+      }
+
+      .field-details summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .field-summary {
+        font-size: 0.8rem;
+        color: #64748b;
+        margin-left: 0.5rem;
+      }
+
+      .shape-section {
+        margin-top: 0.5rem;
+      }
+
+      .shape-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+
+      .shape-entry {
+        border: 1px dashed rgba(15, 23, 42, 0.2);
+        border-radius: 6px;
+        padding: 0.4rem 0.5rem;
+        background: #f9fafb;
+      }
+
+      .shape-title {
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        color: #475569;
+      }
+
+      .shape-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        font-size: 0.75rem;
+      }
+
+      .shape-points {
+        margin-top: 0.25rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        font-size: 0.8rem;
+        color: #475569;
+      }
+
+      .fieldset-actions,
+      .field-actions,
+      .shape-actions {
+        margin-top: 0.5rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+      }
+
+      .fieldset-global-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.4rem 0.6rem;
+      }
+
+      .scanplane-actions {
+        margin-top: 0.6rem;
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .device-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+        color: #334155;
+      }
+
+      footer {
+        text-align: center;
+        font-size: 0.85rem;
+        color: #4a5568;
+        margin-bottom: 2rem;
+      }
+
+      @media (max-width: 960px) {
+        main {
+          flex-direction: column;
+        }
+
+        .side-menu {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>TriOrb - SICK SLS Editor</h1>
+    </header>
+    <main>
+      <section class="content-area">
+        <div class="toolbar">
+          <button id="btn-new" type="button">New Plot</button>
+          <button id="btn-save" type="button" class="secondary">Save (XML)</button>
+          <label class="upload-btn">
+            Load (XML)
+            <input id="file-input" type="file" accept=".xml,.sgexml" />
+          </label>
+          <span id="status-text">Ready</span>
+        </div>
+        <div class="plot-wrapper">
+          <div id="plot"></div>
+        </div>
+      </section>
+      <aside class="side-menu">
+        <h2>Structure Menu</h2>
+        {% for item in menu_items %}
+        {% if item.tag == "FileInfo" %}
+        <details class="menu-section">
+        {% else %}
+        <details class="menu-section" {% if loop.first %}open{% endif %}>
+        {% endif %}
+          <summary>{{ item.tag }}</summary>
+          <div class="menu-content">
+            {% if item.tag == "FileInfo" %}
+              <p class="menu-description">{{ item.summary }}</p>
+              {% if fileinfo_fields %}
+              <div class="menu-fileinfo-grid" data-scope="fileinfo">
+                {% for field in fileinfo_fields %}
+                <div class="menu-fileinfo-field">
+                  <label for="fileinfo-{{ field.tag }}">{{ field.tag }}</label>
+                  <input
+                    id="fileinfo-{{ field.tag }}"
+                    type="text"
+                    value="{{ field.value }}"
+                    data-field="{{ field.tag }}"
+                  />
+                </div>
+                {% endfor %}
+              </div>
+              {% else %}
+              <p>No FileInfo entries.</p>
+              {% endif %}
+            {% elif item.tag == "Export_ScanPlanes" %}
+              <p class="menu-description">{{ item.summary }}</p>
+              <button type="button" class="inline-btn" id="btn-add-scanplane">Add ScanPlane</button>
+              <div class="scanplanes-editor" id="scanplanes-editor"></div>
+            {% elif item.tag == "Export_FieldsetsAndFields" %}
+              <p class="menu-description">{{ item.summary }}</p>
+              <button type="button" class="inline-btn" id="btn-add-fieldset">Add Fieldset</button>
+              <details class="menu-section" id="fieldset-global-section" open>
+                <summary>GlobalGeometry</summary>
+                <div class="menu-content">
+                  <div class="fieldset-global-grid" id="fieldset-global"></div>
+                </div>
+              </details>
+              <details class="menu-section" id="fieldset-devices-section" open>
+                <summary>Devices</summary>
+                <div class="menu-content">
+                  <div class="fieldset-actions">
+                    <button type="button" class="inline-btn" id="btn-add-fieldset-device">
+                      Add Device
+                    </button>
+                  </div>
+                  <div class="fieldsets-editor" id="fieldset-devices"></div>
+                </div>
+              </details>
+              <div class="fieldsets-editor" id="fieldsets-editor"></div>
+            {% else %}
+              <p>{{ item.summary }}</p>
+            {% endif %}
+          </div>
+        </details>
+        {% endfor %}
+        <h2>TriOrb Menu</h2>
+        <details class="menu-section">
+          <summary>Device</summary>
+          <div class="menu-content">
+            <div class="menu-fileinfo-grid">
+              <div class="triorb-field">
+                <label>FieldOfView</label>
+                <input type="text" value="270" readonly />
+              </div>
+            </div>
+          </div>
+        </details>
+        <details class="menu-section">
+          <summary>Field</summary>
+          <div class="menu-content">
+            <div class="menu-fileinfo-grid">
+              <div class="triorb-field">
+                <label>MultipleSampling (2-16)</label>
+                <input
+                  id="global-multiple-sampling"
+                  type="number"
+                  min="2"
+                  max="16"
+                  value="2"
+                />
+              </div>
+            </div>
+            <details class="menu-section">
+              <summary>CommonCutOut #1</summary>
+              <div class="menu-content">
+                <ul>
+                  <li>Polygon #1</li>
+                  <li>Circle #1</li>
+                  <li>Rectangle #1</li>
+                </ul>
+              </div>
+            </details>
+          </div>
+        </details>
+      </aside>
+    </main>
+    <footer>Flask + Plotly powered preview</footer>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const defaultFigure = {{ plot_spec|tojson }};
+        defaultFigure.data = defaultFigure.data || [];
+        const rootAttributes = {{ root_attrs|tojson }};
+        const initialScanPlanes = {{ scan_planes|tojson }};
+        const fieldsetData = {{ fieldsets|tojson }};
+        const initialFieldsets = fieldsetData.fieldsets || [];
+        const initialFieldsetDevices = fieldsetData.devices || [];
+        const initialFieldsetGlobal = fieldsetData.global_geometry || {};
+
+        const figureConfig = { responsive: true, displaylogo: false };
+        const plotNode = document.getElementById("plot");
+        const statusText = document.getElementById("status-text");
+        const fileInput = document.getElementById("file-input");
+        const plotWrapper = document.querySelector(".plot-wrapper");
+        const scanPlanesContainer = document.getElementById("scanplanes-editor");
+        const addScanPlaneBtn = document.getElementById("btn-add-scanplane");
+        const fieldsetsContainer = document.getElementById("fieldsets-editor");
+        const fieldsetDevicesContainer = document.getElementById("fieldset-devices");
+        const addFieldsetDeviceBtn = document.getElementById("btn-add-fieldset-device");
+        const fieldsetGlobalContainer = document.getElementById("fieldset-global");
+        const addFieldsetBtn = document.getElementById("btn-add-fieldset");
+        const globalMultipleSamplingInput = document.getElementById("global-multiple-sampling");
+        const originTrace = findOriginTrace(defaultFigure);
+
+        let currentFigure = cloneFigure(defaultFigure);
+        let scanPlanes = initializeScanPlanes(initialScanPlanes);
+        let fieldsets = initializeFieldsets(initialFieldsets);
+        let fieldsetDevices = initializeFieldsetDevices(initialFieldsetDevices);
+        let fieldsetGlobalGeometry = initializeGlobalGeometry(initialFieldsetGlobal);
+        let globalMultipleSampling = deriveInitialMultipleSampling(fieldsets);
+        applyGlobalMultipleSampling(globalMultipleSampling, { rerender: false });
+        if (globalMultipleSamplingInput) {
+          globalMultipleSamplingInput.value = globalMultipleSampling;
+        }
+
+        renderScanPlanes();
+        renderFieldsets();
+        renderFieldsetDevices();
+        renderFieldsetGlobal();
+
+        function initializeScanPlanes(data) {
+          if (!Array.isArray(data) || !data.length) {
+            return [createDefaultScanPlane(0)];
+          }
+          return data.map((plane, index) => ({
+            attributes: { ...(plane.attributes || {}), Index: plane.attributes?.Index ?? String(index) },
+            devices: Array.isArray(plane.devices)
+              ? plane.devices.map((device, dIdx) => ({
+                  attributes: { ...(device.attributes || {}), Index: device.attributes?.Index ?? String(dIdx) },
+                }))
+              : [],
+          }));
+        }
+
+        function cloneFigure(figure) {
+          return JSON.parse(JSON.stringify(figure));
+        }
+
+        function setStatus(message, state = "ok") {
+          statusText.textContent = message;
+          const resolvedState =
+            typeof state === "string" ? state : state ? "error" : "ok";
+          statusText.dataset.state = resolvedState;
+        }
+
+        function renderFigure() {
+          syncPlotSize();
+          const data = currentFigure.data || [];
+          Plotly.react(plotNode, data, currentFigure.layout, figureConfig);
+        }
+
+        function resetFigure() {
+          currentFigure = cloneFigure(defaultFigure);
+          renderFigure();
+          setStatus("Default plot restored.");
+        }
+
+        function createDefaultScanPlane(index = scanPlanes.length) {
+          return {
+            attributes: {
+              Index: String(index),
+              Name: `Monitoring plane ${index + 1}`,
+              ScanPlaneDirection: "Horizontal",
+              UseReferenceContour: "false",
+              ObjectSize: "70",
+              MultipleSampling: "2",
+              MultipleSamplingOff2OnActivated: "false",
+              SelectedCaseSwitching: "Fast",
+            },
+            devices: [createDefaultDevice(0)],
+          };
+        }
+
+        function createDefaultDevice(index = 0) {
+          return {
+            attributes: {
+              Index: String(index),
+              DeviceName: `Device ${index + 1}`,
+              Typekey: "NANS3-CAAZ30ZA1P02",
+              TypekeyVersion: "1.0",
+              TypekeyDisplayVersion: "V 1.0.0",
+              ResponseTime: "30",
+              ScanResolutionAddition: "0",
+            },
+          };
+        }
+
+        function renderScanPlanes() {
+          if (!scanPlanesContainer) return;
+          scanPlanesContainer.innerHTML = scanPlanes
+            .map((plane, planeIndex) => {
+              const planeFields = Object.entries(plane.attributes || {})
+                .map(
+                  ([key, value]) => `
+              <div class="scanplane-field">
+                <label>${escapeHtml(key)}</label>
+                <input
+                  type="text"
+                  class="scanplane-attr"
+                  data-plane-index="${planeIndex}"
+                  data-field="${escapeHtml(key)}"
+                  value="${escapeHtml(value ?? "")}"
+                />
+              </div>`
+                )
+                .join("");
+
+              const deviceCards = (plane.devices || [])
+                .map((device, deviceIndex) => {
+                  const deviceFields = Object.entries(device.attributes || {})
+                    .map(
+                      ([key, value]) => `
+                  <div class="device-field">
+                    <label>${escapeHtml(key)}</label>
+                    <input
+                      type="text"
+                      class="device-attr"
+                      data-plane-index="${planeIndex}"
+                      data-device-index="${deviceIndex}"
+                      data-field="${escapeHtml(key)}"
+                      value="${escapeHtml(value ?? "")}"
+                    />
+                  </div>`
+                    )
+                    .join("");
+
+                  return `
+                <div class="device-card" data-plane-index="${planeIndex}" data-device-index="${deviceIndex}">
+                  <details class="device-details" open>
+                    <summary>
+                      <span>Device #${deviceIndex + 1}</span>
+                      <span class="device-summary">${device.attributes.DeviceName || ""}</span>
+                      <button
+                        type="button"
+                        class="inline-btn inline-danger"
+                        data-action="remove-device"
+                        data-plane-index="${planeIndex}"
+                        data-device-index="${deviceIndex}"
+                      >
+                        Remove
+                      </button>
+                    </summary>
+                    <div class="device-fields">${deviceFields}</div>
+                  </details>
+                </div>`;
+                })
+                .join("");
+
+              return `
+            <div class="scanplane-card" data-plane-index="${planeIndex}">
+              <details class="scanplane-details" open>
+                <summary>
+                  <span>ScanPlane #${planeIndex + 1}</span>
+                  <span class="scanplane-summary">${plane.attributes.Name || ""}</span>
+                  <button
+                    type="button"
+                    class="inline-btn inline-danger"
+                    data-action="remove-scanplane"
+                    data-plane-index="${planeIndex}"
+                  >
+                    Remove
+                  </button>
+                </summary>
+                <div class="scanplane-fields">${planeFields}</div>
+                <div class="scanplane-devices">
+                  ${deviceCards || "<p>No devices yet.</p>"}
+                  <div class="scanplane-actions">
+                    <button
+                      type="button"
+                      class="inline-btn add-device-btn"
+                      data-action="add-device"
+                      data-plane-index="${planeIndex}"
+                    >
+                      + Device
+                    </button>
+                  </div>
+                </div>
+              </details>
+            </div>`;
+            })
+            .join("");
+        }
+
+        function updateScanPlaneAttribute(planeIndex, field, value) {
+          if (scanPlanes[planeIndex]) {
+            scanPlanes[planeIndex].attributes[field] = value;
+            if (field === "Name") {
+              const summary = document.querySelector(
+                `.scanplane-card[data-plane-index="${planeIndex}"] .scanplane-summary`
+              );
+              if (summary) {
+                summary.textContent = value;
+              }
+            }
+          }
+        }
+
+        function updateDeviceAttribute(planeIndex, deviceIndex, field, value) {
+          const plane = scanPlanes[planeIndex];
+          if (plane && plane.devices && plane.devices[deviceIndex]) {
+            plane.devices[deviceIndex].attributes[field] = value;
+            if (field === "DeviceName") {
+              const deviceSummary = document.querySelector(
+                `.device-card[data-plane-index="${planeIndex}"][data-device-index="${deviceIndex}"] .device-summary`
+              );
+              if (deviceSummary) {
+                deviceSummary.textContent = value;
+              }
+            }
+          }
+        }
+
+        function getScanPlaneDeviceOptions() {
+          const options = [];
+          const seen = new Set();
+          scanPlanes.forEach((plane) => {
+            (plane.devices || []).forEach((device) => {
+              const attrs = device.attributes || {};
+              const typekey = attrs.Typekey;
+              if (!typekey) {
+                return;
+              }
+              if (seen.has(typekey)) {
+                return;
+              }
+              seen.add(typekey);
+              options.push({
+                typekey,
+                typekeyDisplayVersion: attrs.TypekeyDisplayVersion || "",
+                typekeyVersion: attrs.TypekeyVersion || "",
+                label: attrs.DeviceName
+                  ? `${attrs.DeviceName} (${typekey})`
+                  : typekey,
+              });
+            });
+          });
+          return options;
+        }
+
+        function findScanPlaneDeviceByTypekey(typekey) {
+          if (!typekey) {
+            return null;
+          }
+          for (const plane of scanPlanes) {
+            for (const device of plane.devices || []) {
+              if ((device.attributes || {}).Typekey === typekey) {
+                return device;
+              }
+            }
+          }
+          return null;
+        }
+
+        function applyScanPlaneDeviceAttributes(targetDevice, typekey) {
+          targetDevice.attributes = targetDevice.attributes || {};
+          targetDevice.attributes.Typekey = typekey || "";
+
+          const source = findScanPlaneDeviceByTypekey(typekey);
+          const keys = ["TypekeyDisplayVersion", "TypekeyVersion"];
+          keys.forEach((key) => {
+            targetDevice.attributes[key] =
+              (source?.attributes || {})[key] || "";
+          });
+        }
+
+        function initializeFieldsets(data) {
+          if (!Array.isArray(data) || !data.length) {
+            return [createDefaultFieldset(0)];
+          }
+          return data.map((fieldset, index) => ({
+            attributes: {
+              Name: fieldset.attributes?.Name || `Fieldset ${index + 1}`,
+              ...fieldset.attributes,
+            },
+            fields: Array.isArray(fieldset.fields) && fieldset.fields.length
+              ? fieldset.fields.map((field, fieldIndex) => ({
+                  attributes: {
+                    Name: field.attributes?.Name || `Field ${fieldIndex + 1}`,
+                    ...field.attributes,
+                  },
+                  polygons: Array.isArray(field.polygons)
+                    ? field.polygons.map((polygon) => ({
+                        attributes: { ...polygon.attributes },
+                        points: Array.isArray(polygon.points)
+                          ? polygon.points.map((point) => ({ ...point }))
+                          : [],
+                      }))
+                    : [],
+                  circles: Array.isArray(field.circles)
+                    ? field.circles.map((circle) => ({ ...circle }))
+                    : [],
+                  rectangles: Array.isArray(field.rectangles)
+                    ? field.rectangles.map((rectangle) => ({ ...rectangle }))
+                    : [],
+                }))
+              : [createDefaultField(0)],
+          }));
+        }
+
+        function createDefaultFieldset(index = fieldsets.length) {
+          const isFirst = index === 0;
+          return {
+            attributes: {
+              Name: isFirst ? "Default" : `Fieldset ${index + 1}`,
+              NameLatin9Key: `FS_DEFAULT_${index + 1}`,
+            },
+            fields: [createDefaultField(0)],
+          };
+        }
+
+        function createDefaultField(index = 0) {
+          const samplingValue =
+            typeof globalMultipleSampling === "undefined"
+              ? "2"
+              : globalMultipleSampling;
+          return {
+            attributes: {
+              Name: `Field ${index + 1}`,
+              Fieldtype: "ProtectiveSafeBlanking",
+              MultipleSampling: samplingValue,
+              Resolution: "70",
+              TolerancePositive: "0",
+              ToleranceNegative: "0",
+            },
+            polygons: [createDefaultPolygon()],
+            circles: [createDefaultCircle()],
+            rectangles: [createDefaultRectangle()],
+          };
+        }
+
+        function deriveInitialMultipleSampling(fieldsetList) {
+          for (const fieldset of fieldsetList) {
+            if (!fieldset.fields) continue;
+            for (const field of fieldset.fields) {
+              if (field.attributes?.MultipleSampling) {
+                return field.attributes.MultipleSampling;
+              }
+            }
+          }
+          return "2";
+        }
+
+        function applyGlobalMultipleSampling(value, { rerender = true } = {}) {
+          globalMultipleSampling = value;
+          if (globalMultipleSamplingInput) {
+            globalMultipleSamplingInput.value = value;
+          }
+          fieldsets.forEach((fieldset) => {
+            (fieldset.fields || []).forEach((field) => {
+              field.attributes = field.attributes || {};
+              field.attributes.MultipleSampling = value;
+            });
+          });
+          if (rerender) {
+            renderFieldsets();
+          }
+        }
+
+        function createDefaultPolygon() {
+          return {
+            attributes: { Type: "CutOut" },
+            points: [
+              { X: "0", Y: "0" },
+              { X: "100", Y: "0" },
+              { X: "100", Y: "100" },
+              { X: "0", Y: "100" },
+            ],
+          };
+        }
+
+        function createDefaultRectangle() {
+          return {
+            Type: "Field",
+            OriginX: "0",
+            OriginY: "0",
+            Height: "100",
+            Width: "100",
+            Rotation: "0",
+          };
+        }
+
+        function createDefaultCircle() {
+          return {
+            Type: "Field",
+            CenterX: "0",
+            CenterY: "0",
+            Radius: "100",
+          };
+        }
+
+        function renderFieldsets() {
+          if (!fieldsetsContainer) {
+            return;
+          }
+          if (!fieldsets.length) {
+            fieldsetsContainer.innerHTML = "<p>No fieldsets defined.</p>";
+            return;
+          }
+          fieldsetsContainer.innerHTML = fieldsets
+            .map((fieldset, fieldsetIndex) => {
+              const fieldsetFields = Object.entries(fieldset.attributes || {})
+                .map(
+                  ([key, value]) => `
+              <div class="fieldset-field">
+                <label>${escapeHtml(key)}</label>
+                <input
+                  type="text"
+                  class="fieldset-attr"
+                  data-fieldset-index="${fieldsetIndex}"
+                  data-field="${escapeHtml(key)}"
+                  value="${escapeHtml(value ?? "")}"
+                />
+              </div>`
+                )
+                .join("");
+
+              const fieldCards = (fieldset.fields || [])
+                .map((field, fieldIndex) => {
+                  const fieldAttrs = Object.entries(field.attributes || {})
+                    .map(([key, value]) => {
+                      if (key === "Fieldtype") {
+                        const options = [
+                          "ProtectiveSafeBlanking",
+                          "WarningSafeBlanking",
+                        ]
+                          .map(
+                            (opt) =>
+                              `<option value="${opt}"${
+                                opt === value ? " selected" : ""
+                              }>${opt}</option>`
+                          )
+                          .join("");
+                        return `
+              <div class="field-attribute">
+                <label>${escapeHtml(key)}</label>
+                <select
+                  class="field-attr"
+                  data-fieldset-index="${fieldsetIndex}"
+                  data-field-index="${fieldIndex}"
+                  data-field="${escapeHtml(key)}"
+                >
+                  ${options}
+                </select>
+              </div>`;
+                      }
+                      if (key === "MultipleSampling") {
+                        return `
+              <div class="field-attribute">
+                <label>${escapeHtml(key)}</label>
+                <input
+                  type="number"
+                  value="${escapeHtml(globalMultipleSampling)}"
+                  min="2"
+                  max="16"
+                  readonly
+                />
+              </div>`;
+                      }
+                      return `
+              <div class="field-attribute">
+                <label>${escapeHtml(key)}</label>
+                <input
+                  type="text"
+                  class="field-attr"
+                  data-fieldset-index="${fieldsetIndex}"
+                  data-field-index="${fieldIndex}"
+                  data-field="${escapeHtml(key)}"
+                  value="${escapeHtml(value ?? "")}"
+                />
+              </div>`;
+                    })
+                    .join("");
+
+                  const polygons =
+                    (field.polygons || [])
+                      .map(
+                        (polygon, polygonIndex) => `
+              <div class="shape-entry">
+                <div class="shape-title">Polygon #${polygonIndex + 1}</div>
+                <div class="shape-badges">
+                  ${formatAttributeBadges(polygon.attributes)}
+                </div>
+                <div class="shape-points">
+                  ${(polygon.points || [])
+                    .map(
+                      (point) =>
+                        `(${escapeHtml(point.X || "0")}, ${escapeHtml(point.Y || "0")})`
+                    )
+                    .join("")}
+                </div>
+              </div>`
+                      )
+                      .join("") || "<p>No polygon data.</p>";
+
+                  const circles =
+                    (field.circles || [])
+                      .map(
+                        (circle, circleIndex) => `
+              <div class="shape-entry">
+                <div class="shape-title">Circle #${circleIndex + 1}</div>
+                <div class="shape-badges">
+                  ${formatAttributeBadges(circle)}
+                </div>
+              </div>`
+                      )
+                      .join("") || "<p>No circle data.</p>";
+
+                  const rectangles =
+                    (field.rectangles || [])
+                      .map(
+                        (rectangle, rectangleIndex) => `
+              <div class="shape-entry">
+                <div class="shape-title">Rectangle #${rectangleIndex + 1}</div>
+                <div class="shape-badges">
+                  ${formatAttributeBadges(rectangle)}
+                </div>
+              </div>`
+                      )
+                      .join("") || "<p>No rectangle data.</p>";
+
+                  return `
+            <div
+              class="field-card"
+              data-fieldset-index="${fieldsetIndex}"
+              data-field-index="${fieldIndex}"
+            >
+              <details class="field-details" open>
+                <summary>
+                  <span>Field #${fieldIndex + 1}</span>
+                  <span class="field-summary">${field.attributes.Name || ""}</span>
+                  <button
+                    type="button"
+                    class="inline-btn inline-danger"
+                    data-action="remove-field"
+                    data-fieldset-index="${fieldsetIndex}"
+                    data-field-index="${fieldIndex}"
+                  >
+                    Remove
+                  </button>
+                </summary>
+                <div class="field-attributes">${fieldAttrs}</div>
+                <div class="shape-section">
+                  <h4>Polygons</h4>
+                  <div class="shape-list">${polygons}</div>
+                </div>
+                <div class="shape-section">
+                  <h4>Circles</h4>
+                  <div class="shape-list">${circles}</div>
+                </div>
+                <div class="shape-section">
+                  <h4>Rectangles</h4>
+                  <div class="shape-list">${rectangles}</div>
+                </div>
+              </details>
+            </div>`;
+                })
+                .join("") || "<p>No fields defined.</p>";
+
+              return `
+          <div class="fieldset-card" data-fieldset-index="${fieldsetIndex}">
+            <details class="fieldset-details">
+              <summary>
+                <span>Fieldset #${fieldsetIndex + 1}</span>
+                <span class="fieldset-summary">${fieldset.attributes.Name || ""}</span>
+                <button
+                  type="button"
+                  class="inline-btn inline-danger"
+                  data-action="remove-fieldset"
+                  data-fieldset-index="${fieldsetIndex}"
+                >
+                  Remove
+                </button>
+              </summary>
+              <div class="fieldset-fields">${fieldsetFields}</div>
+              <div class="field-card-list">
+                ${fieldCards}
+                <div class="field-actions">
+                  <button
+                    type="button"
+                    class="inline-btn"
+                    data-action="add-field"
+                    data-fieldset-index="${fieldsetIndex}"
+                  >
+                    + Field
+                  </button>
+                </div>
+              </div>
+            </details>
+          </div>`;
+            })
+            .join("");
+        }
+
+        function updateFieldsetAttribute(fieldsetIndex, key, value) {
+          const fieldset = fieldsets[fieldsetIndex];
+          if (!fieldset) return;
+          fieldset.attributes[key] = value;
+          if (key === "Name") {
+            const summary = document.querySelector(
+              `.fieldset-card[data-fieldset-index="${fieldsetIndex}"] .fieldset-summary`
+            );
+            if (summary) {
+              summary.textContent = value;
+            }
+          }
+        }
+
+        function updateFieldAttribute(fieldsetIndex, fieldIndex, key, value) {
+          const fieldset = fieldsets[fieldsetIndex];
+          const field = fieldset?.fields?.[fieldIndex];
+          if (!field) return;
+          field.attributes[key] = value;
+          if (key === "Name") {
+            const summary = document.querySelector(
+              `.field-card[data-fieldset-index="${fieldsetIndex}"][data-field-index="${fieldIndex}"] .field-summary`
+            );
+            if (summary) {
+              summary.textContent = value;
+            }
+          }
+        }
+
+        function formatAttributeBadges(attrs) {
+          if (!attrs) {
+            return "";
+          }
+          return Object.entries(attrs)
+            .map(
+              ([key, value]) =>
+                `<span>${escapeHtml(key)}=${escapeHtml(value ?? "")}</span>`
+            )
+            .join("");
+        }
+
+        function initializeFieldsetDevices(data) {
+          if (!Array.isArray(data) || !data.length) {
+            return [createDefaultFieldsetDevice(0)];
+          }
+          return data.map((device, index) => ({
+            attributes: {
+              DeviceName: device.attributes?.DeviceName || `Device ${index + 1}`,
+              ...device.attributes,
+            },
+          }));
+        }
+
+        function initializeGlobalGeometry(data) {
+          if (!data || typeof data !== "object" || !Object.keys(data).length) {
+            return { UseGlobalGeometry: "false" };
+          }
+          return { ...data };
+        }
+
+        function createDefaultFieldsetDevice(index = 0) {
+          const options = getScanPlaneDeviceOptions();
+          const defaultTypekey = options[0]?.typekey || "";
+          const device = {
+            attributes: {
+              Typekey: defaultTypekey,
+              TypekeyVersion: "1.0",
+              TypekeyDisplayVersion: "V 1.0.0",
+              PositionX: "0",
+              PositionY: "0",
+              Rotation: "0",
+              StandingUpsideDown: "false",
+            },
+          };
+          if (defaultTypekey) {
+            applyScanPlaneDeviceAttributes(device, defaultTypekey);
+          }
+          return device;
+        }
+
+        function renderFieldsetDevices() {
+          if (!fieldsetDevicesContainer) return;
+          if (!fieldsetDevices.length) {
+            fieldsetDevicesContainer.innerHTML = "<p>No devices defined.</p>";
+            return;
+          }
+          const deviceOptions = getScanPlaneDeviceOptions();
+          fieldsetDevicesContainer.innerHTML = fieldsetDevices
+            .map((device, deviceIndex) => {
+              const sanitizedAttributes = Object.entries(device.attributes || {}).filter(
+                ([key]) => key !== "DeviceName"
+              );
+              const deviceFields = sanitizedAttributes
+                .map(([key, value]) => {
+                  if (key === "Typekey") {
+                    const optionsHtml =
+                      '<option value="">-- Select Typekey --</option>' +
+                      (deviceOptions.length
+                        ? deviceOptions
+                            .map(
+                              (opt) =>
+                                `<option value="${escapeHtml(opt.typekey)}"${
+                                  opt.typekey === value ? " selected" : ""
+                                }>${escapeHtml(opt.label)}</option>`
+                            )
+                            .join("")
+                        : `<option value="${escapeHtml(value || "")}" selected>${escapeHtml(
+                            value || ""
+                          )}</option>`);
+                    return `
+              <div class="device-field">
+                <label>${escapeHtml(key)}</label>
+                <select
+                  class="fieldset-device-typekey"
+                  data-device-index="${deviceIndex}"
+                >
+                  ${optionsHtml}
+                </select>
+              </div>`;
+                  }
+                  if (["TypekeyDisplayVersion", "TypekeyVersion"].includes(key)) {
+                    return `
+              <div class="device-field">
+                <label>${escapeHtml(key)}</label>
+                <input type="text" value="${escapeHtml(value ?? "")}" readonly />
+              </div>`;
+                  }
+                  return `
+              <div class="device-field">
+                <label>${escapeHtml(key)}</label>
+                <input
+                  type="text"
+                  class="fieldset-device-attr"
+                  data-device-index="${deviceIndex}"
+                  data-field="${escapeHtml(key)}"
+                  value="${escapeHtml(value ?? "")}"
+                />
+              </div>`;
+                })
+                .join("");
+
+              return `
+            <div class="device-card" data-fieldset-device-index="${deviceIndex}">
+              <details class="device-details" open>
+                <summary>
+                  <span>Device #${deviceIndex + 1}</span>
+                  <span class="device-summary">${device.attributes.Typekey || ""}</span>
+                  <button
+                    type="button"
+                    class="inline-btn inline-danger"
+                    data-action="remove-fieldset-device"
+                    data-device-index="${deviceIndex}"
+                  >
+                    Remove
+                  </button>
+                </summary>
+                <div class="device-fields">${deviceFields}</div>
+              </details>
+            </div>`;
+            })
+            .join("");
+        }
+
+        function renderFieldsetGlobal() {
+          if (!fieldsetGlobalContainer) return;
+          const entries =
+            Object.entries(fieldsetGlobalGeometry || {}).length > 0
+              ? Object.entries(fieldsetGlobalGeometry)
+              : [["UseGlobalGeometry", "false"]];
+          fieldsetGlobalContainer.innerHTML = entries
+            .map(
+              ([key, value]) => `
+          <div class="fieldset-field">
+            <label>${escapeHtml(key)}</label>
+            <input
+              type="text"
+              class="fieldset-global-attr"
+              data-field="${escapeHtml(key)}"
+              value="${escapeHtml(value ?? "")}"
+            />
+          </div>`
+            )
+            .join("");
+        }
+
+        function updateFieldsetDeviceAttribute(deviceIndex, key, value) {
+          const device = fieldsetDevices[deviceIndex];
+          if (!device) return;
+          device.attributes[key] = value;
+          if (key === "Typekey") {
+            const summary = document.querySelector(
+              `.device-card[data-fieldset-device-index="${deviceIndex}"] .device-summary`
+            );
+            if (summary) {
+              summary.textContent = value;
+            }
+          }
+        }
+
+        function updateGlobalGeometryAttribute(key, value) {
+          fieldsetGlobalGeometry[key] = value;
+        }
+
+        function buildXmlFromFigure() {
+          const figure = currentFigure || defaultFigure;
+          const fileInfoLines = buildFileInfoLines();
+          const scanPlaneLines = buildScanPlanesXml();
+          const fieldsetLines = buildFieldsetsXml();
+          const rootAttrOverrides = {
+            ...rootAttributes,
+            Timestamp: new Date().toISOString(),
+            "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+          };
+          const rootAttrText = buildRootAttributes(
+            rootAttrOverrides,
+            getAttributeOrder("SdImportExport")
+          );
+          const lines = [
+            '<?xml version="1.0" encoding="utf-8"?>',
+            rootAttrText ? `<SdImportExport ${rootAttrText}>` : "<SdImportExport>",
+            "  <FileInfo>",
+            ...fileInfoLines,
+            "  </FileInfo>",
+            "  <Export_ScanPlanes>",
+            ...scanPlaneLines,
+            "  </Export_ScanPlanes>",
+            "  <Export_FieldsetsAndFields>",
+            ...fieldsetLines,
+            "  </Export_FieldsetsAndFields>",
+            "  <Export_CasetablesAndCases />",
+            "</SdImportExport>",
+            "",
+            "<TriOrb_SICK_SLS_Editor>",
+            "  <PlotlyData>",
+            "    <Traces>",
+          ];
+
+          (figure.data || []).forEach((trace, index) => {
+            const name = escapeXml(trace?.name ?? `Trace ${index + 1}`);
+            const mode = escapeXml(trace?.mode ?? "lines");
+            lines.push(`      <Trace Name="${name}" Mode="${mode}">`);
+            const len = Math.min(trace.x?.length || 0, trace.y?.length || 0);
+            for (let i = 0; i < len; i += 1) {
+              lines.push(`        <Point X="${trace.x[i]}" Y="${trace.y[i]}" />`);
+            }
+            lines.push("      </Trace>");
+          });
+
+          lines.push("    </Traces>");
+          lines.push("  </PlotlyData>");
+          lines.push("  <TriOrbMenu>");
+          lines.push('    <Device FieldOfView="270" />');
+          lines.push(
+            `    <Field MultipleSampling="${escapeXml(
+              String(globalMultipleSampling || "2")
+            )}">`
+          );
+          lines.push("      <CommonCutOut Name=\"CommonCutOut #1\">");
+          lines.push("        <Polygon Name=\"Polygon #1\" />");
+          lines.push("        <Circle Name=\"Circle #1\" />");
+          lines.push("        <Rectangle Name=\"Rectangle #1\" />");
+          lines.push("      </CommonCutOut>");
+          lines.push("    </Field>");
+          lines.push("  </TriOrbMenu>");
+          lines.push("</TriOrb_SICK_SLS_Editor>");
+          return lines.join("\n");
+        }
+
+        function buildScanPlanesXml() {
+          if (!scanPlanes.length) {
+            return ["    <!-- ScanPlane not set -->"];
+          }
+          const lines = [];
+          scanPlanes.forEach((plane) => {
+            const attrText = buildAttributeString(
+              plane.attributes,
+              getAttributeOrder("ScanPlane")
+            );
+            lines.push(`    <ScanPlane${attrText ? " " + attrText : ""}>`);
+            if (plane.devices && plane.devices.length) {
+              lines.push("      <Devices>");
+              plane.devices.forEach((device) => {
+                const deviceAttrs = buildAttributeString(
+                  device.attributes,
+                  getAttributeOrder("Device")
+                );
+                lines.push(`        <Device${deviceAttrs ? " " + deviceAttrs : ""} />`);
+              });
+              lines.push("      </Devices>");
+            } else {
+              lines.push("      <Devices />");
+            }
+            lines.push("    </ScanPlane>");
+          });
+          return lines;
+        }
+
+        function buildFieldsetsXml() {
+          const lines = [];
+          lines.push('    <ScanPlane Index="0">');
+
+          lines.push("      <Devices>");
+          if (fieldsetDevices.length) {
+            fieldsetDevices.forEach((device) => {
+              const sanitizedDeviceAttrs = { ...(device.attributes || {}) };
+              delete sanitizedDeviceAttrs.DeviceName;
+              const deviceAttrs = buildAttributeString(
+                sanitizedDeviceAttrs,
+                getAttributeOrder("Device")
+              );
+              lines.push(`        <Device${deviceAttrs ? " " + deviceAttrs : ""} />`);
+            });
+          } else {
+            lines.push("        <!-- No devices -->");
+          }
+          lines.push("      </Devices>");
+
+          const globalAttr = buildAttributeString(
+            fieldsetGlobalGeometry,
+            getAttributeOrder("GlobalGeometry")
+          );
+          lines.push(
+            globalAttr
+              ? `      <GlobalGeometry ${globalAttr} />`
+              : "      <GlobalGeometry />"
+          );
+
+          lines.push("      <Fieldsets>");
+          if (fieldsets.length) {
+            fieldsets.forEach((fieldset) => {
+            const attrText = buildAttributeString(
+              fieldset.attributes,
+              getAttributeOrder("Fieldset")
+            );
+            lines.push(`        <Fieldset${attrText ? " " + attrText : ""}>`);
+            if (fieldset.fields && fieldset.fields.length) {
+              fieldset.fields.forEach((field) => {
+                const fieldAttrs = buildAttributeString(
+                  field.attributes,
+                  getAttributeOrder("Field")
+                );
+                lines.push(`          <Field${fieldAttrs ? " " + fieldAttrs : ""}>`);
+                if (field.polygons && field.polygons.length) {
+                  field.polygons.forEach((polygon) => {
+                    const polygonAttrs = buildAttributeString(
+                      polygon.attributes,
+                      getAttributeOrder("Polygon")
+                    );
+                    lines.push(`            <Polygon${polygonAttrs ? " " + polygonAttrs : ""}>`);
+                    if (polygon.points && polygon.points.length) {
+                      polygon.points.forEach((point) => {
+                        const pointAttrs = buildAttributeString(
+                          point,
+                          getAttributeOrder("Point")
+                        );
+                        lines.push(`              <Point${pointAttrs ? " " + pointAttrs : ""} />`);
+                      });
+                    }
+                    lines.push("            </Polygon>");
+                  });
+                }
+                if (field.circles && field.circles.length) {
+                  field.circles.forEach((circle) => {
+                    const circleAttrs = buildAttributeString(
+                      circle,
+                      getAttributeOrder("Circle")
+                    );
+                    lines.push(`            <Circle${circleAttrs ? " " + circleAttrs : ""} />`);
+                  });
+                }
+                if (field.rectangles && field.rectangles.length) {
+                  field.rectangles.forEach((rectangle) => {
+                    const rectAttrs = buildAttributeString(
+                      rectangle,
+                      getAttributeOrder("Rectangle")
+                    );
+                    lines.push(`            <Rectangle${rectAttrs ? " " + rectAttrs : ""} />`);
+                  });
+                  }
+                  lines.push("          </Field>");
+                });
+              } else {
+                lines.push("          <!-- No fields -->");
+              }
+              lines.push("        </Fieldset>");
+            });
+          } else {
+            lines.push("        <!-- No fieldsets -->");
+          }
+          lines.push("      </Fieldsets>");
+          lines.push("    </ScanPlane>");
+          return lines;
+        }
+
+        function buildAttributeString(attrs, order = []) {
+          if (!attrs) return "";
+          const keys = Object.keys(attrs);
+          const orderedKeys = [];
+          const remaining = new Set(keys);
+          order.forEach((key) => {
+            if (remaining.has(key)) {
+              orderedKeys.push(key);
+              remaining.delete(key);
+            }
+          });
+          Array.from(remaining)
+            .sort()
+            .forEach((key) => orderedKeys.push(key));
+          return orderedKeys
+            .map(
+              (key) =>
+                `${sanitizeTagName(key)}="${escapeXml(String(attrs[key] ?? ""))}"`
+            )
+            .join(" ");
+        }
+
+        function getAttributeOrder(tag) {
+          switch (tag) {
+            case "SdImportExport":
+              return ["Timestamp", "xmlns:xsd", "xmlns:xsi"];
+            case "ScanPlane":
+              return [
+                "Index",
+                "Name",
+                "ScanPlaneDirection",
+                "UseReferenceContour",
+                "ObjectSize",
+                "MultipleSampling",
+                "MultipleSamplingOff2OnActivated",
+                "SelectedCaseSwitching",
+              ];
+            case "Device":
+              return [
+                "Index",
+                "Typekey",
+                "TypekeyVersion",
+                "TypekeyDisplayVersion",
+                "DeviceName",
+                "ResponseTime",
+                "ScanResolutionAddition",
+                "PositionX",
+                "PositionY",
+                "Rotation",
+                "StandingUpsideDown",
+              ];
+            case "Fieldset":
+              return ["Name", "NameLatin9Key"];
+            case "Field":
+              return [
+                "Name",
+                "Fieldtype",
+                "MultipleSampling",
+                "Resolution",
+                "TolerancePositive",
+                "ToleranceNegative",
+              ];
+            case "Polygon":
+              return ["Type"];
+            case "Rectangle":
+              return ["Type", "OriginX", "OriginY", "Height", "Width", "Rotation"];
+            case "Circle":
+              return ["Type", "CenterX", "CenterY", "Radius"];
+            case "Point":
+              return ["X", "Y"];
+            case "GlobalGeometry":
+              return ["UseGlobalGeometry"];
+            default:
+              return [];
+          }
+        }
+
+        function downloadXml(xmlString) {
+          const blob = new Blob([xmlString], { type: "application/xml" });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = `plot_${Date.now()}.sgexml`;
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+        }
+
+        function escapeXml(value) {
+          return String(value ?? "").replace(/[<>&'\"]/g, (char) => {
+            switch (char) {
+              case "<":
+                return "&lt;";
+              case ">":
+                return "&gt;";
+              case "&":
+                return "&amp;";
+              case "'":
+                return "&apos;";
+              case "\"":
+                return "&quot;";
+              default:
+                return char;
+            }
+          });
+        }
+
+        function escapeHtml(value) {
+          return String(value ?? "").replace(/[&<>"']/g, (char) => {
+            switch (char) {
+              case "&":
+                return "&amp;";
+              case "<":
+                return "&lt;";
+              case ">":
+                return "&gt;";
+              case '"':
+                return "&quot;";
+              case "'":
+                return "&#39;";
+              default:
+                return char;
+            }
+          });
+        }
+
+        function sanitizeTagName(name) {
+          return (name || "Field").replace(/[^\w:.-]/g, "_");
+        }
+
+        function buildFileInfoLines() {
+          const scope = document.querySelector('[data-scope="fileinfo"]');
+          if (!scope) {
+            return ["    <!-- FileInfo not set -->"];
+          }
+          const inputs = Array.from(
+            scope.querySelectorAll(
+              ".menu-fileinfo-field input, .menu-fileinfo-field textarea"
+            )
+          );
+          if (!inputs.length) {
+            return ["    <!-- FileInfo not set -->"];
+          }
+          return inputs.map((input) => {
+            const tag = sanitizeTagName(input.dataset.field || input.id || "Field");
+            const rawValue = (input.value || "").trim();
+            if (!rawValue) {
+              return `    <${tag} />`;
+            }
+            const value = escapeXml(rawValue);
+            return `    <${tag}>${value}</${tag}>`;
+          });
+        }
+
+        function buildRootAttributes(attrs) {
+          if (!attrs || typeof attrs !== "object") {
+            return "";
+          }
+          return Object.entries(attrs)
+            .map(
+              ([key, value]) =>
+                `${sanitizeTagName(key)}="${escapeXml(String(value ?? ""))}"`
+            )
+            .join(" ");
+        }
+
+        function buildRootAttributes(attrs, order = []) {
+          if (!attrs || typeof attrs !== "object") {
+            return "";
+          }
+          return buildAttributeString(attrs, order);
+        }
+
+        function parseXmlToFigure(xmlText) {
+          const parser = new DOMParser();
+          let doc = parser.parseFromString(xmlText, "application/xml");
+          if (doc.querySelector("parsererror")) {
+            const sanitized = xmlText.replace(/<\?xml[^>]*\?>/gi, "").trim();
+            const wrapped = `<TriOrbWrapper>${sanitized}</TriOrbWrapper>`;
+            doc = parser.parseFromString(wrapped, "application/xml");
+          }
+          if (doc.querySelector("parsererror")) {
+            throw new Error("Failed to parse XML.");
+          }
+
+          populateFileInfoFromDoc(doc);
+          populateScanPlanesFromDoc(doc);
+          populateFieldsetsFromDoc(doc);
+
+          const tracesFromPlotData = parsePlotDataTraces(doc);
+          if (tracesFromPlotData.length) {
+            return { traces: tracesFromPlotData, warning: "" };
+          }
+
+          const polygonTrace = parsePolygonTrace(doc);
+          if (polygonTrace.length) {
+            return { traces: polygonTrace, warning: "" };
+          }
+
+          return {
+            traces: [],
+            warning: "Plot data was not found; displaying an empty plot.",
+          };
+        }
+        function parsePlotDataTraces(doc) {
+          const traces = Array.from(
+            doc.querySelectorAll(
+              "PlotData > Trace, PlotlyData > Trace, PlotlyData > Traces > Trace, TriOrb_SICK_SLS_Editor > PlotlyData > Traces > Trace"
+            )
+          );
+          return traces.map((traceNode, index) => {
+            const points = Array.from(traceNode.getElementsByTagName("Point"));
+            const x = [];
+            const y = [];
+            points.forEach((pt) => {
+              const xVal = Number(pt.getAttribute("X"));
+              const yVal = Number(pt.getAttribute("Y"));
+              if (Number.isFinite(xVal) && Number.isFinite(yVal)) {
+                x.push(xVal);
+                y.push(yVal);
+              }
+            });
+
+            return buildTraceFromPoints(
+              x,
+              y,
+              {
+                name: traceNode.getAttribute("Name") || `Trace ${index + 1}`,
+                mode: traceNode.getAttribute("Mode") || "lines+markers",
+              },
+              index
+            );
+          });
+        }
+
+        function parsePolygonTrace(doc) {
+          const polygon = doc.querySelector("Polygon");
+          if (!polygon) {
+            return [];
+          }
+
+          const points = Array.from(polygon.getElementsByTagName("Point"));
+          const x = [];
+          const y = [];
+          points.forEach((pt) => {
+            const xVal = Number(pt.getAttribute("X"));
+            const yVal = Number(pt.getAttribute("Y"));
+            if (Number.isFinite(xVal) && Number.isFinite(yVal)) {
+              x.push(xVal);
+              y.push(yVal);
+            }
+          });
+
+          const polygonTrace = buildTraceFromPoints(
+            x,
+            y,
+            {
+              name: polygon.getAttribute("Type") || "Polygon",
+              mode: "lines+markers",
+              fill: "toself",
+            },
+            0
+          );
+
+          const traces = [polygonTrace];
+          if (originTrace) {
+            traces.push(cloneTrace(originTrace));
+          }
+          return traces;
+        }
+        function populateFileInfoFromDoc(doc) {
+          const fileInfoNode = doc.querySelector("FileInfo");
+          if (!fileInfoNode) return;
+          const inputs = document.querySelectorAll(".menu-fileinfo-field input");
+          inputs.forEach((input) => {
+            const targetTag = input.dataset.field || sanitizeTagName(input.id || "Field");
+            const element = fileInfoNode.getElementsByTagName(targetTag)[0];
+            if (element && typeof element.textContent === "string") {
+              input.value = element.textContent.trim();
+            }
+          });
+        }
+
+        function populateScanPlanesFromDoc(doc) {
+          const planeNodes = doc.querySelectorAll("Export_ScanPlanes > ScanPlane");
+          if (!planeNodes.length) {
+            return;
+          }
+          scanPlanes = Array.from(planeNodes).map((planeNode, planeIndex) => {
+            const attributes = {};
+            Array.from(planeNode.attributes).forEach((attr) => {
+              attributes[attr.name] = attr.value;
+            });
+            if (!("Index" in attributes)) {
+              attributes.Index = String(planeIndex);
+            }
+            const devices = Array.from(planeNode.querySelectorAll("Devices > Device")).map((deviceNode, deviceIndex) => {
+              const deviceAttrs = {};
+              Array.from(deviceNode.attributes).forEach((attr) => {
+                deviceAttrs[attr.name] = attr.value;
+              });
+              if (!("Index" in deviceAttrs)) {
+                deviceAttrs.Index = String(deviceIndex);
+              }
+              return { attributes: deviceAttrs };
+            });
+            return { attributes, devices };
+          });
+          renderScanPlanes();
+        }
+
+        function populateFieldsetsFromDoc(doc) {
+          const scanPlaneNode = doc.querySelector(
+            "Export_FieldsetsAndFields > ScanPlane"
+          );
+          if (!scanPlaneNode) {
+            fieldsets = [createDefaultFieldset(0)];
+            fieldsetDevices = [createDefaultFieldsetDevice(0)];
+            fieldsetGlobalGeometry = initializeGlobalGeometry({});
+            renderFieldsets();
+            renderFieldsetDevices();
+            renderFieldsetGlobal();
+            return;
+          }
+
+          const devicesParent = scanPlaneNode.querySelector("Devices");
+          if (devicesParent) {
+            fieldsetDevices = Array.from(
+              devicesParent.querySelectorAll("Device")
+            ).map((deviceNode, deviceIndex) => {
+              const attrs = {};
+              Array.from(deviceNode.attributes).forEach((attr) => {
+                attrs[attr.name] = attr.value;
+              });
+              if (!("DeviceName" in attrs)) {
+                attrs.DeviceName = `Device ${deviceIndex + 1}`;
+              }
+              return { attributes: attrs };
+            });
+          } else {
+            fieldsetDevices = [];
+          }
+
+          const globalNode = scanPlaneNode.querySelector("GlobalGeometry");
+          fieldsetGlobalGeometry = globalNode
+            ? Array.from(globalNode.attributes).reduce((acc, attr) => {
+                acc[attr.name] = attr.value;
+                return acc;
+              }, {})
+            : { UseGlobalGeometry: "false" };
+
+          const fieldsetsParent = scanPlaneNode.querySelector("Fieldsets");
+          const fieldsetNodes = fieldsetsParent
+            ? fieldsetsParent.querySelectorAll("Fieldset")
+            : [];
+
+          if (!fieldsetNodes.length) {
+            fieldsets = [createDefaultFieldset(0)];
+          } else {
+          fieldsets = Array.from(fieldsetNodes).map((fieldsetNode, fieldsetIndex) => {
+            const attributes = {};
+            Array.from(fieldsetNode.attributes).forEach((attr) => {
+              attributes[attr.name] = attr.value;
+            });
+              if (!("Name" in attributes)) {
+                attributes.Name = `Fieldset ${fieldsetIndex + 1}`;
+              }
+
+              const fieldNodes = Array.from(
+                fieldsetNode.querySelectorAll("Field")
+              );
+
+              const fields = fieldNodes.map((fieldNode, fieldIndex) => {
+                const fieldAttrs = {};
+                Array.from(fieldNode.attributes).forEach((attr) => {
+                  fieldAttrs[attr.name] = attr.value;
+                });
+                if (!("Name" in fieldAttrs)) {
+                  fieldAttrs.Name = `Field ${fieldIndex + 1}`;
+                }
+
+                const polygonNodes = Array.from(
+                  fieldNode.querySelectorAll("Polygon")
+                );
+                const polygons = polygonNodes.map((polygonNode) => {
+                  const polygonAttrs = {};
+                  Array.from(polygonNode.attributes).forEach((attr) => {
+                    polygonAttrs[attr.name] = attr.value;
+                  });
+                  const pointNodes = Array.from(polygonNode.querySelectorAll("Point"));
+                  const points = pointNodes.map((pointNode) => {
+                    const pointAttrs = {};
+                    Array.from(pointNode.attributes).forEach((attr) => {
+                      pointAttrs[attr.name] = attr.value;
+                    });
+                    return pointAttrs;
+                  });
+                  return { attributes: polygonAttrs, points };
+                });
+
+              const circleNodes = Array.from(
+                fieldNode.querySelectorAll("Circle")
+              );
+              const circles = circleNodes.map((circleNode) => {
+                const circleAttrs = {};
+                Array.from(circleNode.attributes).forEach((attr) => {
+                  circleAttrs[attr.name] = attr.value;
+                });
+                return circleAttrs;
+              });
+
+              const rectangleNodes = Array.from(
+                fieldNode.querySelectorAll("Rectangle")
+              );
+              const rectangles = rectangleNodes.map((rectangleNode) => {
+                const rectangleAttrs = {};
+                Array.from(rectangleNode.attributes).forEach((attr) => {
+                  rectangleAttrs[attr.name] = attr.value;
+                });
+                return rectangleAttrs;
+              });
+
+              return {
+                attributes: fieldAttrs,
+                polygons,
+                circles,
+                rectangles,
+              };
+            });
+
+              return {
+                attributes,
+                fields,
+              };
+            });
+          }
+
+          globalMultipleSampling = deriveInitialMultipleSampling(fieldsets);
+          if (globalMultipleSamplingInput) {
+            globalMultipleSamplingInput.value = globalMultipleSampling;
+          }
+          applyGlobalMultipleSampling(globalMultipleSampling, { rerender: false });
+          renderFieldsets();
+          renderFieldsetDevices();
+          renderFieldsetGlobal();
+        }
+
+        function findOriginTrace(figure) {
+          return figure.data?.find((trace) => {
+            const x = trace.x || [];
+            const y = trace.y || [];
+            return x.length === 1 && y.length === 1 && x[0] === 0 && y[0] === 0;
+          });
+        }
+
+        function syncPlotSize() {
+          if (!plotWrapper) return;
+          const width = plotWrapper.clientWidth;
+          plotNode.style.height = `${width}px`;
+        }
+
+        if (addScanPlaneBtn) {
+          addScanPlaneBtn.addEventListener("click", () => {
+            scanPlanes.push(createDefaultScanPlane(scanPlanes.length));
+            renderScanPlanes();
+          });
+        }
+
+        if (scanPlanesContainer) {
+          scanPlanesContainer.addEventListener("click", (event) => {
+            const addTarget = event.target.closest("[data-action='add-device']");
+            if (addTarget) {
+              event.preventDefault();
+              event.stopPropagation();
+              const planeIndex = Number(addTarget.dataset.planeIndex);
+              const plane = scanPlanes[planeIndex];
+              if (plane) {
+                const newDevice = createDefaultDevice(plane.devices.length);
+                plane.devices.push(newDevice);
+                renderScanPlanes();
+              }
+              return;
+            }
+
+            const removeDeviceTarget = event.target.closest("[data-action='remove-device']");
+            if (removeDeviceTarget) {
+              event.preventDefault();
+              event.stopPropagation();
+              const planeIndex = Number(removeDeviceTarget.dataset.planeIndex);
+              const deviceIndex = Number(removeDeviceTarget.dataset.deviceIndex);
+              const plane = scanPlanes[planeIndex];
+              if (plane && plane.devices) {
+                plane.devices.splice(deviceIndex, 1);
+                renderScanPlanes();
+              }
+              return;
+            }
+
+            const removePlaneTarget = event.target.closest("[data-action='remove-scanplane']");
+            if (removePlaneTarget) {
+              event.preventDefault();
+              event.stopPropagation();
+              const planeIndex = Number(removePlaneTarget.dataset.planeIndex);
+              scanPlanes.splice(planeIndex, 1);
+              renderScanPlanes();
+            }
+          });
+
+          scanPlanesContainer.addEventListener("input", (event) => {
+            const target = event.target;
+            if (target.classList.contains("scanplane-attr")) {
+              const planeIndex = Number(target.dataset.planeIndex);
+              const field = target.dataset.field;
+              updateScanPlaneAttribute(planeIndex, field, target.value);
+            } else if (target.classList.contains("device-attr")) {
+              const planeIndex = Number(target.dataset.planeIndex);
+              const deviceIndex = Number(target.dataset.deviceIndex);
+              const field = target.dataset.field;
+              updateDeviceAttribute(planeIndex, deviceIndex, field, target.value);
+            }
+          });
+        }
+
+        if (addFieldsetBtn) {
+          addFieldsetBtn.addEventListener("click", () => {
+            fieldsets.push(createDefaultFieldset(fieldsets.length));
+            applyGlobalMultipleSampling(globalMultipleSampling, { rerender: false });
+            renderFieldsets();
+          });
+        }
+
+        if (globalMultipleSamplingInput) {
+          globalMultipleSamplingInput.addEventListener("input", (event) => {
+            let value = parseInt(event.target.value, 10);
+            if (Number.isNaN(value)) {
+              value = 2;
+            }
+            value = Math.min(16, Math.max(2, value));
+            event.target.value = value;
+            applyGlobalMultipleSampling(String(value));
+          });
+        }
+
+        if (addFieldsetDeviceBtn) {
+          addFieldsetDeviceBtn.addEventListener("click", () => {
+            fieldsetDevices.push(createDefaultFieldsetDevice(fieldsetDevices.length));
+            renderFieldsetDevices();
+          });
+        }
+
+        if (fieldsetDevicesContainer) {
+          fieldsetDevicesContainer.addEventListener("click", (event) => {
+            const removeDevice = event.target.closest("[data-action='remove-fieldset-device']");
+            if (removeDevice) {
+              event.preventDefault();
+              event.stopPropagation();
+              const deviceIndex = Number(removeDevice.dataset.deviceIndex);
+              fieldsetDevices.splice(deviceIndex, 1);
+              renderFieldsetDevices();
+            }
+          });
+
+          fieldsetDevicesContainer.addEventListener("input", (event) => {
+            const target = event.target;
+            if (target.classList.contains("fieldset-device-typekey")) {
+              const deviceIndex = Number(target.dataset.deviceIndex);
+              const selectedTypekey = target.value;
+              const device = fieldsetDevices[deviceIndex];
+              if (device) {
+                applyScanPlaneDeviceAttributes(device, selectedTypekey);
+                renderFieldsetDevices();
+              }
+            } else if (target.classList.contains("fieldset-device-attr")) {
+              const deviceIndex = Number(target.dataset.deviceIndex);
+              const field = target.dataset.field;
+              updateFieldsetDeviceAttribute(deviceIndex, field, target.value);
+            }
+          });
+        }
+
+        if (fieldsetGlobalContainer) {
+          fieldsetGlobalContainer.addEventListener("input", (event) => {
+            const target = event.target;
+            if (target.classList.contains("fieldset-global-attr")) {
+              const field = target.dataset.field;
+              updateGlobalGeometryAttribute(field, target.value);
+            }
+          });
+        }
+
+        if (fieldsetsContainer) {
+          fieldsetsContainer.addEventListener("click", (event) => {
+            const removeFieldsetTarget = event.target.closest("[data-action='remove-fieldset']");
+            if (removeFieldsetTarget) {
+              event.preventDefault();
+              event.stopPropagation();
+              const fieldsetIndex = Number(removeFieldsetTarget.dataset.fieldsetIndex);
+              fieldsets.splice(fieldsetIndex, 1);
+              renderFieldsets();
+              return;
+            }
+
+            const addFieldTarget = event.target.closest("[data-action='add-field']");
+            if (addFieldTarget) {
+              event.preventDefault();
+              event.stopPropagation();
+              const fieldsetIndex = Number(addFieldTarget.dataset.fieldsetIndex);
+              const fieldset = fieldsets[fieldsetIndex];
+              if (fieldset) {
+                fieldset.fields = fieldset.fields || [];
+                fieldset.fields.push(createDefaultField(fieldset.fields.length));
+                renderFieldsets();
+              }
+              return;
+            }
+
+            const removeFieldTarget = event.target.closest("[data-action='remove-field']");
+            if (removeFieldTarget) {
+              event.preventDefault();
+              event.stopPropagation();
+              const fieldsetIndex = Number(removeFieldTarget.dataset.fieldsetIndex);
+              const fieldIndex = Number(removeFieldTarget.dataset.fieldIndex);
+              const fieldset = fieldsets[fieldsetIndex];
+              if (fieldset && fieldset.fields) {
+                fieldset.fields.splice(fieldIndex, 1);
+                renderFieldsets();
+              }
+            }
+          });
+
+          fieldsetsContainer.addEventListener("input", (event) => {
+            const target = event.target;
+            if (target.classList.contains("fieldset-attr")) {
+              const fieldsetIndex = Number(target.dataset.fieldsetIndex);
+              const field = target.dataset.field;
+              updateFieldsetAttribute(fieldsetIndex, field, target.value);
+            } else if (target.classList.contains("field-attr")) {
+              const fieldsetIndex = Number(target.dataset.fieldsetIndex);
+              const fieldIndex = Number(target.dataset.fieldIndex);
+              const field = target.dataset.field;
+              updateFieldAttribute(fieldsetIndex, fieldIndex, field, target.value);
+            }
+          });
+        }
+
+        document.getElementById("btn-new").addEventListener("click", resetFigure);
+
+        document.getElementById("btn-save").addEventListener("click", () => {
+          const xml = buildXmlFromFigure();
+          downloadXml(xml);
+          setStatus("XML downloaded.");
+        });
+
+        fileInput.addEventListener("change", (event) => {
+          const file = event.target.files?.[0];
+          if (!file) {
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const { traces, warning } = parseXmlToFigure(reader.result);
+              const layout = cloneFigure(defaultFigure).layout;
+              currentFigure = { data: traces, layout };
+              renderFigure();
+              if (warning) {
+                setStatus(`${file.name} loaded with warnings: ${warning}`, "warning");
+              } else {
+                setStatus(`${file.name} loaded.`);
+              }
+            } catch (error) {
+              console.error(error);
+              setStatus(error.message || "Failed to load file.", "error");
+            } finally {
+              fileInput.value = "";
+            }
+          };
+          reader.readAsText(file, "utf-8");
+        });
+
+        window.addEventListener("resize", () => {
+          syncPlotSize();
+          Plotly.Plots.resize(plotNode);
+        });
+
+        setupLayoutObservers();
+        renderFigure();
+
+        function setupLayoutObservers() {
+          if (typeof ResizeObserver === "undefined") {
+            return;
+          }
+          const observer = new ResizeObserver(() => {
+            syncPlotSize();
+            Plotly.Plots.resize(plotNode);
+          });
+          const contentArea = document.querySelector(".content-area");
+          const sideMenu = document.querySelector(".side-menu");
+          if (contentArea) observer.observe(contentArea);
+          if (sideMenu) observer.observe(sideMenu);
+        }
+      });
+    </script>
+  </body>
+</html>
