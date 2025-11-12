@@ -142,20 +142,30 @@ def _load_triorb_shapes_from_root(root: ET.Element) -> Tuple[List[Dict[str, Any]
             "id": shape_node.attrib.get("ID") or _generate_shape_id(),
             "name": shape_node.attrib.get("Name", ""),
             "type": shape_type,
+            "fieldtype": shape_node.attrib.get("Fieldtype", "ProtectiveSafeBlanking"),
+            "kind": shape_node.attrib.get("Kind"),
         }
         if shape_type == "Polygon":
             polygon = shape_node.find("Polygon")
             if polygon is not None:
                 polygon_attrs, points = _parse_polygon_node(polygon)
                 shape_data["polygon"] = {"Type": polygon_attrs.get("Type", "CutOut"), "points": points}
+                if not shape_data["kind"]:
+                    shape_data["kind"] = polygon_attrs.get("Type")
         elif shape_type == "Rectangle":
             rectangle = shape_node.find("Rectangle")
             if rectangle is not None:
                 shape_data["rectangle"] = _parse_rectangle_node(rectangle)
+                if not shape_data["kind"]:
+                    shape_data["kind"] = shape_data["rectangle"].get("Type")
         elif shape_type == "Circle":
             circle = shape_node.find("Circle")
             if circle is not None:
                 shape_data["circle"] = _parse_circle_node(circle)
+                if not shape_data["kind"]:
+                    shape_data["kind"] = shape_data["circle"].get("Type")
+        if not shape_data.get("kind"):
+            shape_data["kind"] = "Field"
         shapes.append(shape_data)
     return shapes, tri_source
 
@@ -167,6 +177,7 @@ def _ensure_shape(
     attrs: Dict[str, str],
     points: Optional[List[Dict[str, str]]],
     hint: Optional[str] = None,
+    fieldtype: Optional[str] = None,
 ) -> str:
     key = _build_shape_key(shape_type, attrs, points)
     existing_id = registry.get(key)
@@ -175,7 +186,13 @@ def _ensure_shape(
 
     shape_id = attrs.get("ID") or _generate_shape_id()
     name = hint or f"{shape_type} Shape {len(shapes) + 1}"
-    shape_entry: Dict[str, Any] = {"id": shape_id, "name": name, "type": shape_type}
+    shape_entry: Dict[str, Any] = {
+        "id": shape_id,
+        "name": name,
+        "type": shape_type,
+        "fieldtype": fieldtype or "ProtectiveSafeBlanking",
+        "kind": attrs.get("Type", "Field"),
+    }
     if shape_type == "Polygon":
         shape_entry["polygon"] = {"Type": attrs.get("Type", "CutOut"), "points": points or []}
     elif shape_type == "Rectangle":
@@ -269,6 +286,7 @@ def load_fieldsets_and_shapes() -> Tuple[Dict[str, Any], List[Dict[str, Any]], s
                             attrs,
                             points,
                             f"{fieldset_data['attributes'].get('Name','')} {field_data['attributes'].get('Name','')} Polygon",
+                            field_data["attributes"].get("Fieldtype"),
                         )
                         field_data["shapeRefs"].append({"shapeId": shape_id})
                     for rectangle_node in field_node.findall("Rectangle"):
@@ -280,6 +298,7 @@ def load_fieldsets_and_shapes() -> Tuple[Dict[str, Any], List[Dict[str, Any]], s
                             attrs,
                             None,
                             f"{fieldset_data['attributes'].get('Name','')} {field_data['attributes'].get('Name','')} Rectangle",
+                            field_data["attributes"].get("Fieldtype"),
                         )
                         field_data["shapeRefs"].append({"shapeId": shape_id})
                     for circle_node in field_node.findall("Circle"):
@@ -291,6 +310,7 @@ def load_fieldsets_and_shapes() -> Tuple[Dict[str, Any], List[Dict[str, Any]], s
                             attrs,
                             None,
                             f"{fieldset_data['attributes'].get('Name','')} {field_data['attributes'].get('Name','')} Circle",
+                            field_data["attributes"].get("Fieldtype"),
                         )
                         field_data["shapeRefs"].append({"shapeId": shape_id})
                 fieldset_data["fields"].append(field_data)

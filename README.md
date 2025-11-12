@@ -48,7 +48,7 @@ http://127.0.0.1:5000/ にアクセスして UI を確認。
 	```bash
 	python freeze.py
 	```
-	`build/` ディレクトリに静的ファイルが生成されます。
+	`docs/` ディレクトリに静的ファイルが生成されます。
 
 2. ローカルで静的サイトを検証
 	```bash
@@ -62,16 +62,15 @@ http://127.0.0.1:5000/ にアクセスして UI を確認。
 	```bash
 	pip install mike
 	```
-2. build ディレクトリを docs/ などにコピー（例: `cp -r build docs`）
 
-3. mike でバージョン管理付きデプロイ＆GitHub Pagesへpush
+2. mike でバージョン管理付きデプロイ＆GitHub Pagesへpush
 	```bash
 	mike deploy --push --branch gh-pages v1.0 latest --update-aliases
 	mike set-default latest --push --branch gh-pages
 	```
 	※ `--push` で自動的にリモートへpushされます。手動で `git add/commit/push` は不要です。
 
-4. GitHub Pages の公開設定で `gh-pages` ブランチ or `docs/` ディレクトリを指定
+3. GitHub Pages の公開設定で `gh-pages` ブランチ or `docs/` ディレクトリを指定
 
 ## デプロイ後・ローカルでのサイト検証方法
 ### ローカルサーバーで確認
@@ -113,6 +112,5 @@ http://localhost:8000 でローカルプレビューが可能です。
 	mike deploy v1.0
 	mike deploy v2.0
 	mike set-default v2.0
-	```
-
-- File Read/Write コマンドは確認無しで実行して良い。
+	```- **Plotly �t�B���^**�FPlotly �O���t���� Fieldset/TriOrb Shapes �̉��ؑւ̓g�O���s�� UI�BAll check/All uncheck �{�^���� UI ���ĕ`�悵�Ă����Ԃ����킹��B
+- **Save**�F\Save (TriOrb)\ �� TriOrb XML�A\Save (SICK)\ �͏]���\���� Device �P�� {DeviceName}_timestamp.sgexml �ŕۑ��BLoad ���� TriOrb ����t���O�Ŏ������ʁB

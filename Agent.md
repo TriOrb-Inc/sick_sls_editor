@@ -45,3 +45,7 @@
 - ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«é–¢ã™ã‚‹è³ªå•ã‚„å…±æœ‰äº‹é …ã¯é€Ÿã‚„ã‹ã«å ±å‘Šã™ã‚‹
 - Agent è‡ªèº«ã®ä½œæ¥­çŠ¶æ³ã‚‚é©å®œå…±æœ‰ã™ã‚‹
 - åŸå‰‡æ—¥æœ¬èªã§å¿œç­”ã™ã‚‹
+## 2025-11-XX ”õ–Y
+- Plotly ‰º•”‚Ì Fieldset / TriOrb Shapes ƒtƒBƒ‹ƒ^‚ÍƒgƒOƒ‹ƒsƒ‹ UI ‘O’ñBrenderFieldsetCheckboxes/renderTriOrbShapeCheckboxes ‚Å•K‚¸Ä¶¬‚µA‘S‘I‘ğƒ{ƒ^ƒ“‚ÍÄ•`‰æŒã‚Éó‘Ô‚ğ‡‚í‚¹‚é‚±‚ÆB
+- New ÀsŒã‚à fieldsetDevices / fieldOfViewDegrees ‚ğ•Û‚µArenderFieldsetDevicesErenderFieldsetGlobal Às¨renderFigureBDevice fan trace ‚ğ•K‚¸ Plotly ‚Ö“n‚·B
+- Fieldset ‚ª 0 Œ‚Å‚à buildFieldsetTraces ‚Í buildDeviceOverlayTraces ‚ğ•Ô‚· (î‚ªÁ‚¦‚È‚¢‚æ‚¤‚É)B
