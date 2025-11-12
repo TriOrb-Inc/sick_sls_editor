@@ -6,8 +6,10 @@ import plotly.graph_objs as go
 def build_sample_figure() -> go.Figure:
     """Return an empty Plotly figure with axis/grid styling."""
 
+    # 空の Figure を基点に、Plotly 上で図形を描画しやすいグリッドと補助線を整える。
     fig = go.Figure(data=[])
 
+    # X/Y 共通の軸設定。原点付近での編集を想定してゼロラインとグリッドを濃いめにする。
     axis_style = dict(
         showgrid=True,
         gridcolor="#d9dee7",
@@ -26,6 +28,8 @@ def build_sample_figure() -> go.Figure:
     )
     fig.update_xaxes(title="X[mm]", **axis_style)
     fig.update_yaxes(title="Y[mm]", scaleanchor="x", scaleratio=1, **axis_style)
+
+    # 250mm 間隔の補助線で安全領域のバランスを視覚的に把握しやすくする。
     helper_lines = []
     for value in (-750, -500, -250, 250, 500, 750):
         helper_lines.append(
@@ -52,6 +56,8 @@ def build_sample_figure() -> go.Figure:
                 line=dict(color="#cbd5f5", width=1, dash="dot"),
             )
         )
+
+    # 背景を白で固定し、Legend を上部にまとめて UI と馴染ませる。
     fig.update_layout(
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",

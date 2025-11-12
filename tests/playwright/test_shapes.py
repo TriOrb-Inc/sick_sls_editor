@@ -3,6 +3,8 @@ import sys
 
 
 def run_playwright_test():
+    # Flask サーバーを別プロセスで起動している前提で、
+    # TriOrb のグローバル入力が Fieldset に伝播するかを最小限確認する。
     server_url = "http://127.0.0.1:5000/?debug=1"
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -43,6 +45,7 @@ def run_playwright_test():
             "#btn-triorb-shape-uncheck-all",
         ]
         for selector in buttons:
+            # ボタン表示状態は UI の条件によって変わるため、存在チェックの上で順番にクリックする。
             if page.is_visible(selector):
                 page.click(selector)
                 page.wait_for_timeout(200)
