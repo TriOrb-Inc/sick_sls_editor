@@ -2977,24 +2977,18 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         }
 
         function renderCreateFieldShapeLists() {
-          if (!triorbShapes.length) {
-            createFieldShapeLists.forEach((listObj) => {
-              Object.values(listObj).forEach((element) => {
-                if (element) {
-                  element.innerHTML = '<p class="toggle-pill-empty">No shapes available.</p>';
-                }
-              });
-            });
-            updateFieldModalPreview();
-            return;
-          }
           createFieldShapeLists.forEach((listObj, fieldIndex) => {
             shapeKinds.forEach((kind) => {
               const list = listObj[kind];
               if (!list) {
                 return;
               }
-              list.innerHTML = triorbShapes
+              const filteredShapes = triorbShapes.filter((shape) => shape.kind === kind);
+              if (!filteredShapes.length) {
+                list.innerHTML = '<p class="toggle-pill-empty">No shapes available.</p>';
+                return;
+              }
+              list.innerHTML = filteredShapes
                 .map((shape) => {
                   const shapeId = escapeHtml(shape.id);
                   const shapeName = escapeHtml(shape.name || shape.id);
@@ -3015,6 +3009,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               setCreateFieldShapeSelections(fieldIndex, kind, Array.from(createFieldModalFieldShapeSelections[fieldIndex][kind]));
             });
           });
+          updateFieldModalPreview();
         }
 
         function setCreateFieldShapeSelections(fieldIndex, kind, shapeIds = []) {
@@ -3073,22 +3068,29 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           updateFieldModalPreview();
         }
 
+        function getFieldPreviewColor(entry) {
+          if (entry.kind === "CutOut") {
+            return { stroke: "rgba(15, 15, 15, 0.92)", fill: withAlpha("#111", 0.12) };
+          }
+          if (entry.fieldType === "WarningSafeBlanking") {
+            return { stroke: "rgba(249, 115, 22, 0.92)", fill: withAlpha("#f97316", 0.12) };
+          }
+          return { stroke: "rgba(239, 68, 68, 0.92)", fill: withAlpha("#ef4444", 0.12) };
+        }
+
         function updateFieldModalPreview() {
           const entries = [];
           createFieldModalFieldShapeSelections.forEach((selection, fieldIndex) => {
             shapeKinds.forEach((kind) => {
               const shapeIds = Array.from(selection[kind] || []);
-              if (!shapeIds.length) {
-                return;
-              }
               const fieldName =
                 createFieldNameInputs[fieldIndex]?.value?.trim() || `Field ${fieldIndex + 1}`;
               const fieldType = fieldTypeLabels[fieldIndex] || fieldTypeLabels[0];
-              const typeValue = createFieldTypeSelects[fieldIndex]?.value || "Field";
-              entries.push({ fieldName, fieldType, shapeIds, typeValue, kind });
+              entries.push({ fieldName, fieldType, shapeIds, kind });
             });
           });
-          fieldModalPreview = entries.length ? entries : null;
+          const hasShapes = entries.some((entry) => entry.shapeIds.length);
+          fieldModalPreview = hasShapes ? entries : null;
           renderFigure();
         }
 
@@ -3096,12 +3098,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (!Array.isArray(fieldModalPreview) || !fieldModalPreview.length) {
             return [];
           }
-          const previewColorSet = {
-            stroke: "rgba(239, 68, 68, 0.92)",
-            fill: withAlpha("#ef4444", 0.08),
-          };
           const traces = [];
           fieldModalPreview.forEach((entry, entryIndex) => {
+            const colorSet = getFieldPreviewColor(entry);
             entry.shapeIds.forEach((shapeId, shapeIndex) => {
               const shapeIndexGlobal = triorbShapes.findIndex((shape) => shape.id === shapeId);
               const shape = triorbShapes[shapeIndexGlobal];
@@ -3115,7 +3114,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                   if (shape.rectangle) {
                     trace = buildRectangleTrace(
                       shape.rectangle,
-                      previewColorSet,
+                      colorSet,
                       `${fieldLabel} / ${shape.name || shape.type}`,
                       entry.fieldType,
                       0,
@@ -3128,7 +3127,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                   if (shape.circle) {
                     trace = buildCircleTrace(
                       shape.circle,
-                      previewColorSet,
+                      colorSet,
                       `${fieldLabel} / ${shape.name || shape.type}`,
                       entry.fieldType,
                       0,
@@ -3142,7 +3141,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                   if (shape.polygon) {
                     trace = buildPolygonTrace(
                       shape.polygon,
-                      previewColorSet,
+                      colorSet,
                       `${fieldLabel} / ${shape.name || shape.type}`,
                       entry.fieldType,
                       0,
