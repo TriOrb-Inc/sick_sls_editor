@@ -42,3 +42,8 @@ XML 生成・読み込み時には `<SdImportExport xmlns:xsd="http://www.w3.org
 - Device FieldOfView 扇形や Fieldset 図形の色が HSVA ベースの設定に従っていること
 
 必要があれば `TestMatrix.md` に手動確認項目を追記してください。
+
+## + Field モーダルの概要
+- Fieldset 名と Latin9 Key を自動生成し、Protective/Warning それぞれで Type=Field/CutOut の Shape 選択を可能にする UI を追加しました。
+- 選択中の Shape は Plotly 上に赤/オレンジ/黒でリアルタイムプレビューされ、OK で Fieldset+Field（Shape 参照込み）を保存します。
+- Cancel で破棄、Shape 未選択でも Fieldset 保存可能。モーダルはドラッグ＆リサイズで配置変更できます。

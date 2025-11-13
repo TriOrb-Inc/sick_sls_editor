@@ -23,3 +23,4 @@
 - PowerShell スクリプト `run_playwright.ps1` は既に存在し、サーバー起動と Playwright テストを連続実行する。必要なら `Set-ExecutionPolicy RemoteSigned` を実行しておく。
 - TriOrb モーダルでは、Fieldset チェックのトグル化とモーダルのドラッグ/リサイズ、Add/Edit/Delete の区別、Cancel での値リセットが揃っていることを確認する。
 - `README.md` を常に最新化して、Playwright 実行手順や `pip install -r requirements.txt` などのセットアップを明文化する。これらが現場のドキュメントとなる。
+- +Field モーダル: Protective/Warning の Field 内で Type=Field/CutOut ごとの Shape 選択と Plotly プレビュー、OK/Cancel で Fieldset を保存/破棄できる UI を導入しました。
