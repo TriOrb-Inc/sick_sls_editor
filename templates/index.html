@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ja">
   <head>
     <meta charset="utf-8" />
@@ -598,6 +598,14 @@
         box-shadow: 0 10px 40px rgba(15, 23, 42, 0.35);
       }
 
+      #create-shape-modal #create-shape-modal-delete {
+        display: none;
+      }
+
+      #create-shape-modal[data-mode="edit"] #create-shape-modal-delete {
+        display: inline-flex;
+      }
+
       .modal-header {
         display: flex;
         justify-content: space-between;
@@ -907,6 +915,9 @@
           </div>
         </div>
         <div class="modal-footer">
+          <button type="button" class="inline-btn inline-danger" id="create-shape-modal-delete" hidden>
+            Delete
+          </button>
           <button type="button" class="inline-btn secondary" id="create-shape-modal-cancel">Cancel</button>
           <button type="button" class="inline-btn" id="create-shape-modal-save">Add Shape</button>
         </div>
@@ -916,10 +927,10 @@
     <header>
       <h1>TriOrb - SICK SLS Editor</h1>
     </header>
-    <!-- メインレイアウト: 左に Plotly 編集エリア、右に設定メニュー -->
+    <!-- メインレイアウト：左に Plotly 表示、右に設定メニュー -->
     <main>
       <section class="content-area">
-        <!-- 図形の追加・保存などツール系 UI -->
+        <!-- 図形の追加・保存などのツール系 UI -->
         <div class="toolbar">
           <div class="toolbar-primary">
             <button id="btn-new" type="button">New</button>
@@ -939,7 +950,7 @@
           <div id="plot"></div>
           <div class="plot-overlay-controls">
             <button id="btn-add-shape-overlay" type="button">+ Shape</button>
-            <button id="btn-add-field-overlay" type="button">＋Field</button>
+            <button id="btn-add-field-overlay" type="button">+ Field</button>
           </div>
         </div>
         <div class="fieldset-filter">
@@ -957,7 +968,7 @@
           <div id="triorb-shape-checkboxes"></div>
         </div>
       </section>
-      <!-- サイドメニュー: XML 構造をツリー形式で表示 -->
+  <!-- サイドメニュー: XML構造を表示する領域 -->
       <aside class="side-menu">
         <h2>Structure Menu</h2>
         {% for item in menu_items %}
@@ -1117,16 +1128,6 @@
         const initialFieldsetGlobal = fieldsetData.global_geometry || {};
 
         const figureConfig = { responsive: true, displaylogo: false };
-        const fieldsetColorPalette = [
-          "#2563eb",
-          "#f43f5e",
-          "#10b981",
-          "#f97316",
-          "#c084fc",
-          "#14b8a6",
-          "#facc15",
-          "#8b5cf6",
-        ];
         const circleSampleSegments = 72;
         const legendLabelMaxLength = 36;
         const defaultScanDeviceTemplates = [
@@ -1154,44 +1155,111 @@
           rectangle: ["Field"],
           circle: ["Field"],
         };
-        const fieldTypeColorScales = {
-          ProtectiveSafeBlanking: [
-            "#fcf3cf",
-            "#f9e79f",
-            "#f7dc6f",
-            "#f4d03f",
-            "#f1c40f",
-          ],
-          WarningSafeBlanking: [
-            "#f7fbff",
-            "#deebf7",
-            "#c6dbef",
-            "#6baed6",
-            "#2171b5",
-          ],
+        const colorProfiles = {
+          FieldProtective: {
+            hueCenter: 350,
+            hueSpread: 20,
+            saturation: 75,
+            value: 100,
+            lineAlpha: 0.5,
+            fillAlpha: 0.125,
+          },
+          FieldWarning: {
+            hueCenter: 60,
+            hueSpread: 10,
+            saturation: 80,
+            value: 100,
+            lineAlpha: 0.5,
+            fillAlpha: 0.125,
+          },
+          TriOrbShape: {
+            hueCenter: 120,
+            hueSpread: 30,
+            saturation: 60,
+            value: 30,
+            lineAlpha: 0.5,
+            fillAlpha: 0.125,
+          },
         };
-        const triOrbColorScale = [
-          "#f4f5f7",
-          "#d9e3f0",
-          "#b4c1d8",
-          "#6e7c8b",
-          "#2f3d49",
-        ];
-        function sampleColorFromScale(scale, index, total = 1) {
-          if (!Array.isArray(scale) || !scale.length) {
-            return "#888";
+        function hashStringToUnit(value) {
+          if (!value) {
+            return 0;
           }
-          const steps = Math.max(total - 1, 1);
-          const ratio = Math.min(scale.length - 1, Math.floor((index / steps) * (scale.length - 1)));
-          return scale[ratio];
+          let hash = 0;
+          const str = String(value);
+          for (let index = 0; index < str.length; index += 1) {
+            hash = (hash * 31 + str.charCodeAt(index)) >>> 0;
+          }
+          return hash / 0xffffffff;
         }
-        function pickFieldColor(fieldType, shapeIndex, totalShapes) {
-          const scale =
-            fieldTypeColorScales[fieldType] || fieldTypeColorScales.ProtectiveSafeBlanking;
-          return sampleColorFromScale(scale, shapeIndex, totalShapes);
+        function wrapHue(value) {
+          const normalized = value % 360;
+          return normalized < 0 ? normalized + 360 : normalized;
         }
-        function pickTriOrbColor(shapeIndex) {
-          return sampleColorFromScale(triOrbColorScale, shapeIndex, triorbShapes.length || 1);
+        function sampleHue(center, spread, seed) {
+          const unit = hashStringToUnit(seed);
+          const range = spread * 2;
+          const hue = center - spread + unit * range;
+          return wrapHue(hue);
+        }
+        function hsvaToRgb(h, s, v) {
+          const saturation = s / 100;
+          const value = v / 100;
+          const chroma = value * saturation;
+          const hPrime = h / 60;
+          const x = chroma * (1 - Math.abs((hPrime % 2) - 1));
+          let r1 = 0;
+          let g1 = 0;
+          let b1 = 0;
+          if (hPrime >= 0 && hPrime < 1) {
+            r1 = chroma;
+            g1 = x;
+          } else if (hPrime >= 1 && hPrime < 2) {
+            r1 = x;
+            g1 = chroma;
+          } else if (hPrime >= 2 && hPrime < 3) {
+            g1 = chroma;
+            b1 = x;
+          } else if (hPrime >= 3 && hPrime < 4) {
+            g1 = x;
+            b1 = chroma;
+          } else if (hPrime >= 4 && hPrime < 5) {
+            r1 = x;
+            b1 = chroma;
+          } else if (hPrime >= 5 && hPrime < 6) {
+            r1 = chroma;
+            b1 = x;
+          }
+          const m = value - chroma;
+          const r = Math.round((r1 + m) * 255);
+          const g = Math.round((g1 + m) * 255);
+          const b = Math.round((b1 + m) * 255);
+          return { r, g, b };
+        }
+        function rgbToHex(r, g, b) {
+          const toHex = (component) => component.toString(16).padStart(2, "0");
+          return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+        function buildColorSet(profile, seed, salt = "") {
+          const hue = sampleHue(profile.hueCenter, profile.hueSpread, `${seed}:${salt}`);
+          const { r, g, b } = hsvaToRgb(hue, profile.saturation, profile.value);
+          const lineAlpha = profile.lineAlpha ?? 0.5;
+          const fillAlpha = profile.fillAlpha ?? lineAlpha;
+          return {
+            stroke: `rgba(${r}, ${g}, ${b}, ${lineAlpha})`,
+            fill: `rgba(${r}, ${g}, ${b}, ${fillAlpha})`,
+            hex: rgbToHex(r, g, b),
+          };
+        }
+        function pickFieldColor(fieldType, seed) {
+          const profile =
+            fieldType === "WarningSafeBlanking"
+              ? colorProfiles.FieldWarning
+              : colorProfiles.FieldProtective;
+          return buildColorSet(profile, seed);
+        }
+        function pickTriOrbColor(seed) {
+          return buildColorSet(colorProfiles.TriOrbShape, seed);
         }
         const plotNode = document.getElementById("plot");
         const statusText = document.getElementById("status-text");
@@ -1238,7 +1306,9 @@
         const createShapeModalClose = document.getElementById("create-shape-modal-close");
         const createShapeModalCancel = document.getElementById("create-shape-modal-cancel");
         const createShapeModalHeader = createShapeModalWindow?.querySelector(".modal-header");
+        const createShapeModalTitle = createShapeModalWindow?.querySelector(".modal-title");
         const createShapeModalSave = document.getElementById("create-shape-modal-save");
+        const createShapeModalDelete = document.getElementById("create-shape-modal-delete");
         const createShapeNameInput = document.getElementById("create-shape-name");
         const createShapeFieldtypeSelect = document.getElementById("create-shape-fieldtype");
         const createShapeTypeSelect = document.getElementById("create-shape-type");
@@ -1298,7 +1368,7 @@
         let createShapeDraftId = null;
           updateGlobalFieldAttributes();
 
-          let lastHoverPoint = null;
+        let lastHoverPoint = null;
         let modalShapeMeta = null;
         let modalOriginalShape = null;
         let modalOffsetX = 0;
@@ -1306,6 +1376,9 @@
         let modalDragStartX = 0;
         let modalDragStartY = 0;
         let isModalDragging = false;
+        let createShapeMode = "create";
+        let createShapeEditingId = null;
+        let createShapeOriginal = null;
 
         renderScanPlanes();
         renderFieldsets();
@@ -1352,8 +1425,9 @@
             copy.name = formatLegendLabel(originalName);
             return copy;
           });
+          const deviceTraces = buildDeviceOverlayTraces();
           const triOrbShapeTraces = buildTriOrbShapeTraces();
-          const overlayTraces = buildFieldsetTraces();
+          const fieldsetTraces = buildFieldsetTraces();
           const previewTraces = buildCreateShapePreviewTraces();
           const layout = {
             ...(currentFigure.layout || {}),
@@ -1384,16 +1458,19 @@
           };
           Plotly.react(
             plotNode,
-            triOrbShapeTraces.concat(baseData).concat(overlayTraces).concat(previewTraces),
+            deviceTraces
+              .concat(triOrbShapeTraces)
+              .concat(baseData)
+              .concat(fieldsetTraces)
+              .concat(previewTraces),
             layout,
             figureConfig
           );
         }
 
         function buildFieldsetTraces() {
-          const deviceTraces = buildDeviceOverlayTraces();
           if (!Array.isArray(fieldsets) || !fieldsets.length) {
-            return deviceTraces;
+            return [];
           }
           const traces = [];
           fieldsets.forEach((fieldset, fieldsetIndex) => {
@@ -1419,14 +1496,15 @@
                   return;
                 }
                 const shapeLabel = `${labelPrefix} / ${shape.name || shape.type}`;
-                const color = pickFieldColor(fieldType, shapeRefIndex, field.shapeRefs?.length || 1);
+                const colorSeed = `${shape.id || shapeIndex}:${fieldsetIndex}:${fieldIndex}:${shapeRefIndex}`;
+                const color = pickFieldColor(fieldType, colorSeed);
                 let shapeTrace = null;
                 switch (shape.type) {
                   case "Rectangle":
                     if (shape.rectangle) {
                       shapeTrace = buildRectangleTrace(
                         shape.rectangle,
-                        pickFieldColor(fieldType, shapeRefIndex, field.shapeRefs?.length || 1),
+                        color,
                         shapeLabel,
                         fieldType,
                         fieldsetIndex,
@@ -1439,7 +1517,7 @@
                     if (shape.circle) {
                       shapeTrace = buildCircleTrace(
                         shape.circle,
-                        pickFieldColor(fieldType, shapeRefIndex, field.shapeRefs?.length || 1),
+                        color,
                         shapeLabel,
                         fieldType,
                         fieldsetIndex,
@@ -1453,7 +1531,7 @@
                     if (shape.polygon) {
                       shapeTrace = buildPolygonTrace(
                         shape.polygon,
-                        pickFieldColor(fieldType, shapeRefIndex, field.shapeRefs?.length || 1),
+                        color,
                         shapeLabel,
                         fieldType,
                         fieldsetIndex,
@@ -1477,7 +1555,7 @@
               });
             });
           });
-          return deviceTraces.concat(traces);
+          return traces;
         }
 
         function buildCreateShapePreviewTraces() {
@@ -1487,11 +1565,15 @@
           const preview = createShapePreview;
           let previewTrace = null;
           const previewLabel = `${preview.name || "New Shape"} (preview)`;
+          const previewColorSet = {
+            stroke: "rgba(239, 68, 68, 0.9)",
+            fill: withAlpha("#ef4444", 0.08),
+          };
           switch (preview.type) {
             case "Rectangle":
               previewTrace = buildRectangleTrace(
                 preview.rectangle,
-                "#ef4444",
+                previewColorSet,
                 previewLabel,
                 preview.fieldtype || "ProtectiveSafeBlanking",
                 0,
@@ -1502,7 +1584,7 @@
             case "Circle":
               previewTrace = buildCircleTrace(
                 preview.circle,
-                "#ef4444",
+                previewColorSet,
                 previewLabel,
                 preview.fieldtype || "ProtectiveSafeBlanking",
                 0,
@@ -1514,7 +1596,7 @@
             default:
               previewTrace = buildPolygonTrace(
                 preview.polygon,
-                "#ef4444",
+                previewColorSet,
                 previewLabel,
                 preview.fieldtype || "ProtectiveSafeBlanking",
                 0,
@@ -1528,11 +1610,11 @@
           }
           previewTrace.line = {
             ...(previewTrace.line || {}),
-            color: "#ef4444",
+            color: previewColorSet.stroke,
             width: Math.max((previewTrace.line && previewTrace.line.width) || 2, 3),
             dash: "solid",
           };
-          previewTrace.fillcolor = withAlpha("#ef4444", 0.08);
+          previewTrace.fillcolor = previewColorSet.fill;
           previewTrace.name = previewLabel;
           previewTrace.showlegend = false;
           previewTrace.hovertemplate = `<b>Preview:</b> ${escapeHtml(
@@ -1542,7 +1624,7 @@
           return [previewTrace];
         }
 
-        function buildPolygonTrace(polygon, color, label, fieldType, fieldsetIndex, fieldIndex, polygonIndex) {
+function buildPolygonTrace(polygon, colorSet, label, fieldType, fieldsetIndex, fieldIndex, polygonIndex) {
           const points = Array.isArray(polygon?.points) ? polygon.points : [];
           if (points.length < 2) {
             return null;
@@ -1571,9 +1653,9 @@
           return {
             type: "scatter",
             mode: "lines",
-            line: { color, width: style.lineWidth, dash: style.lineDash },
+            line: { color: colorSet.stroke, width: style.lineWidth, dash: style.lineDash },
             fill: "toself",
-            fillcolor: withAlpha(color, 0.12),
+            fillcolor: colorSet.fill,
             name: truncatedLabel,
             meta: {
               fullLabel: label,
@@ -1587,9 +1669,9 @@
             x,
             y,
           };
-        }
+}
 
-function buildRectangleTrace(rectangle, color, label, fieldType, fieldsetIndex, fieldIndex, rectangleIndex) {
+function buildRectangleTrace(rectangle, colorSet, label, fieldType, fieldsetIndex, fieldIndex, rectangleIndex) {
           const corners = getRectangleCornerPoints(rectangle);
           if (!corners || !corners.length) {
             return null;
@@ -1600,9 +1682,9 @@ function buildRectangleTrace(rectangle, color, label, fieldType, fieldsetIndex, 
           return {
             type: "scatter",
             mode: "lines",
-            line: { color, width: style.lineWidth, dash: style.lineDash },
+            line: { color: colorSet.stroke, width: style.lineWidth, dash: style.lineDash },
             fill: "toself",
-            fillcolor: withAlpha(color, 0.08),
+            fillcolor: colorSet.fill,
             name: truncatedLabel,
             meta: {
               fullLabel: label,
@@ -1616,9 +1698,9 @@ function buildRectangleTrace(rectangle, color, label, fieldType, fieldsetIndex, 
             x: rotated.map((point) => point.x),
             y: rotated.map((point) => point.y),
           };
-        }
+}
 
-function buildCircleTrace(circle, color, label, fieldType, fieldsetIndex, fieldIndex, circleIndex) {
+function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fieldIndex, circleIndex) {
           if (!circle) {
             return null;
           }
@@ -1640,9 +1722,9 @@ function buildCircleTrace(circle, color, label, fieldType, fieldsetIndex, fieldI
           return {
             type: "scatter",
             mode: "lines",
-            line: { color, width: style.lineWidth, dash: style.lineDash },
+            line: { color: colorSet.stroke, width: style.lineWidth, dash: style.lineDash },
             fill: "toself",
-            fillcolor: withAlpha(color, 0.08),
+            fillcolor: colorSet.fill,
             name: truncatedLabel,
             meta: {
               fullLabel: label,
@@ -1856,45 +1938,62 @@ function buildCircleTrace(circle, color, label, fieldType, fieldsetIndex, fieldI
               if (shape.visible === false) {
                 return null;
               }
-              const color = pickTriOrbColor(shapeIndex);
+              const color = pickTriOrbColor(shape.id || shapeIndex);
               const label = `${shape.name || `Shape ${shapeIndex + 1}`} (${shape.type})`;
               const fieldType = shape.fieldtype || "ProtectiveSafeBlanking";
+              let shapeTrace = null;
               switch (shape.type) {
                 case "Rectangle":
-                  if (!shape.rectangle) return null;
-                  return buildRectangleTrace(
-                    shape.rectangle,
-                    color,
-                    label,
-                    fieldType,
-                    0,
-                    0,
-                    shapeIndex
-                  );
+                  if (shape.rectangle) {
+                    shapeTrace = buildRectangleTrace(
+                      shape.rectangle,
+                      color,
+                      label,
+                      fieldType,
+                      0,
+                      0,
+                      shapeIndex
+                    );
+                  }
+                  break;
                 case "Circle":
-                  if (!shape.circle) return null;
-                  return buildCircleTrace(
-                    shape.circle,
-                    color,
-                    label,
-                    fieldType,
-                    0,
-                    0,
-                    shapeIndex
-                  );
+                  if (shape.circle) {
+                    shapeTrace = buildCircleTrace(
+                      shape.circle,
+                      color,
+                      label,
+                      fieldType,
+                      0,
+                      0,
+                      shapeIndex
+                    );
+                  }
+                  break;
                 case "Polygon":
                 default:
-                  if (!shape.polygon) return null;
-                  return buildPolygonTrace(
-                    shape.polygon,
-                    color,
-                    label,
-                    fieldType,
-                    0,
-                    0,
-                    shapeIndex
-                  );
+                  if (shape.polygon) {
+                    shapeTrace = buildPolygonTrace(
+                      shape.polygon,
+                      color,
+                      label,
+                      fieldType,
+                      0,
+                      0,
+                      shapeIndex
+                    );
+                  }
+                  break;
               }
+              if (!shapeTrace) {
+                return null;
+              }
+              shapeTrace.meta = {
+                ...(shapeTrace.meta || {}),
+                isTriOrbShape: true,
+                shapeId: shape.id,
+                shapeIndex,
+              };
+              return shapeTrace;
             })
             .filter(Boolean);
         }
@@ -1987,7 +2086,8 @@ function buildCircleTrace(circle, color, label, fieldType, fieldsetIndex, fieldI
         function resetFigure() {
           currentFigure = cloneFigure(defaultFigure);
           renderFigure();
-          setStatus("Default plot restored.");
+          setStatus(`${updatedShape.name} を更新しました（${attached} 件の Fieldset に適用）`, "ok");
+
         }
 
         function createDefaultScanPlane(index = scanPlanes.length) {
@@ -4932,12 +5032,8 @@ function parsePolygonTrace(doc) {
             button.setAttribute("aria-pressed", String(nextState));
             if (fieldsets[index]) {
               fieldsets[index].visible = nextState;
-              setStatus(
-                `Fieldset ${fieldsets[index].attributes?.Name || index + 1} ${
-                  nextState ? "checked" : "unchecked"
-                }`,
-                nextState ? "ok" : "warning"
-              );
+              setStatus(`${draft.name} を追加しました（${attached} 件の Fieldset に適用）`, "ok");
+
               renderFigure();
             }
           });
@@ -5014,13 +5110,7 @@ function parsePolygonTrace(doc) {
           if (shapeIndex < 0) {
             return;
           }
-          const shape = triorbShapes[shapeIndex];
-          renderShapeModal({
-            kind: (shape.type || "polygon").toLowerCase(),
-            shapeIndex,
-            shapeType: shape.type,
-            isTriOrbShape: true,
-          });
+          openCreateShapeModalForEdit(shapeId);
         }
 
         const handleFieldsetInput = (event) => {
@@ -5341,6 +5431,7 @@ function parsePolygonTrace(doc) {
           }
         }
         function resetCreateShapeForm() {
+          createShapeDraftId = null;
           if (!createShapeNameInput) return;
           createShapeNameInput.value = "";
           if (createShapeFieldtypeSelect) {
@@ -5376,6 +5467,7 @@ function parsePolygonTrace(doc) {
             if (input) input.value = val;
           });
           updateCreateShapeDimensionVisibility();
+          setCreateShapeFieldsetSelections([]);
         }
 
         function updateCreateShapeDimensionVisibility() {
@@ -5454,28 +5546,37 @@ function parsePolygonTrace(doc) {
             const points = Array.isArray(shape.polygon?.points) ? shape.polygon.points : [];
             const minPoints = strict ? 3 : 2;
             if (points.length < minPoints) {
+            return {
+              ok: false,
+              message: strict
+                ? "Polygon には 3 点以上が必要です。"
+                : "Polygon は 2 点以上必要です。",
+            };
+          }
+        } else if (shape.type === "Rectangle") {
+          const width = parseNumeric(shape.rectangle?.Width, NaN);
+          const height = parseNumeric(shape.rectangle?.Height, NaN);
+          if (!Number.isFinite(width) || !Number.isFinite(height)) {
               return {
                 ok: false,
-                message: strict
-                  ? "Polygon には 3 点以上が必要です。"
-                  : "Polygon を描画するには 2 点以上が必要です。",
+                message: "Rectangle の幅・高さを正しく入力してください。",
               };
-            }
-          } else if (shape.type === "Rectangle") {
-            const width = parseNumeric(shape.rectangle?.Width, NaN);
-            const height = parseNumeric(shape.rectangle?.Height, NaN);
-            if (!Number.isFinite(width) || !Number.isFinite(height)) {
-              return { ok: false, message: "Rectangle の幅・高さが正しくありません。" };
-            }
-            if (width === 0 || height === 0) {
-              return { ok: false, message: "Rectangle の幅と高さは 0 ではいけません。" };
-            }
-          } else if (shape.type === "Circle") {
-            const radius = parseNumeric(shape.circle?.Radius, NaN);
-            if (!Number.isFinite(radius) || radius <= 0) {
-              return { ok: false, message: "Circle の半径を正しく入力してください。" };
-            }
-          }
+           }
+           if (width === 0 || height === 0) {
+              return {
+                ok: false,
+                message: "Rectangle の幅と高さは 0 より大きくしてください。",
+              };
+           }
+         } else if (shape.type === "Circle") {
+           const radius = parseNumeric(shape.circle?.Radius, NaN);
+           if (!Number.isFinite(radius) || radius <= 0) {
+              return {
+                ok: false,
+                message: "Circle の半径は正の数でなければいけません。",
+              };
+           }
+         }
           return { ok: true };
         }
 
@@ -5543,15 +5644,148 @@ function parsePolygonTrace(doc) {
             .join("");
         }
 
-        function openCreateShapeModal() {
-          resetCreateShapeForm();
+        function setCreateShapeFieldsetSelections(indexes = []) {
+          if (!createShapeFieldsetList) {
+            return;
+          }
+          const indexSet = new Set(indexes.map((value) => Number(value)));
+          createShapeFieldsetList.querySelectorAll(".toggle-pill-btn").forEach((button) => {
+            const index = Number(button.dataset.createFieldsetIndex);
+            const isActive = indexSet.has(index);
+            button.classList.toggle("active", isActive);
+            button.setAttribute("aria-pressed", String(isActive));
+          });
+        }
+
+        function getFieldsetIndexesReferencingShape(shapeId) {
+          const indexes = [];
+          fieldsets.forEach((fieldset, index) => {
+            const hasReference = (fieldset.fields || []).some((field) =>
+              Array.isArray(field.shapeRefs) &&
+              field.shapeRefs.some((ref) => ref.shapeId === shapeId)
+            );
+            if (hasReference) {
+              indexes.push(index);
+            }
+          });
+          return indexes;
+        }
+
+        function populateCreateShapeForm(shape) {
+          if (!shape) {
+            return;
+          }
+          if (createShapeNameInput) {
+            createShapeNameInput.value = shape.name || "";
+          }
+          if (createShapeFieldtypeSelect) {
+            createShapeFieldtypeSelect.value = shape.fieldtype || "ProtectiveSafeBlanking";
+          }
+          if (createShapeKindSelect) {
+            createShapeKindSelect.value = shape.kind || "Field";
+          }
+          if (createShapeTypeSelect) {
+            createShapeTypeSelect.value = shape.type || "Polygon";
+          }
+          if (createShapePointsInput) {
+            const pointText = formatPolygonPoints(shape.polygon?.points || []);
+            createShapePointsInput.value = pointText || "(0,0),(100,0),(100,100)";
+          }
+          if (shape.rectangle) {
+            Object.entries(shape.rectangle).forEach(([key, value]) => {
+              const input = document.getElementById(`create-rect-${key.toLowerCase()}`);
+              if (input) {
+                input.value = value;
+              }
+            });
+          } else {
+            ["originx", "originy", "width", "height", "rotation"].forEach((field) => {
+              const input = document.getElementById(`create-rect-${field}`);
+              if (input) {
+                input.value = field === "rotation" ? "0" : "0";
+              }
+            });
+          }
+          if (shape.circle) {
+            Object.entries(shape.circle).forEach(([key, value]) => {
+              const input = document.getElementById(`create-circle-${key.toLowerCase()}`);
+              if (input) {
+                input.value = value;
+              }
+            });
+          }
+        }
+
+        function detachShapeFromAllFieldsets(shapeId) {
+          fieldsets.forEach((fieldset) => {
+            (fieldset.fields || []).forEach((field) => {
+              if (Array.isArray(field.shapeRefs)) {
+                field.shapeRefs = field.shapeRefs.filter((ref) => ref.shapeId !== shapeId);
+              }
+            });
+          });
+        }
+
+        function openCreateShapeModalForCreate() {
+          createShapeMode = "create";
+          createShapeEditingId = null;
+          createShapeOriginal = null;
+          resetCreateShapeForm();
+          renderCreateShapeFieldsetsList();
+          setCreateShapeFieldsetSelections([]);
+          createShapeDraftId = createShapeId();
+          if (createShapeModalTitle) {
+            createShapeModalTitle.textContent = "Add Shape";
+          }
+          if (createShapeModalSave) {
+            createShapeModalSave.textContent = "Add Shape";
+          }
+          if (createShapeModalDelete) {
+            createShapeModalDelete.hidden = true;
+          }
+          updateCreateShapeDimensionVisibility();
+          updateCreateShapePreview();
+          createShapeModalOffsetX = 0;
+          createShapeModalOffsetY = 0;
+          ensureCreateShapePosition();
+          if (createShapeModal) {
+            createShapeModal.dataset.mode = "create";
+          }
+          createShapeModal?.classList.add("active");
+          createShapeModal?.setAttribute("aria-hidden", "false");
+        }
+
+                function openCreateShapeModalForEdit(shapeId) {
+          const shapeIndex = triorbShapes.findIndex((shape) => shape.id === shapeId);
+          if (shapeIndex < 0) {
+            return;
+          }
+          const shape = triorbShapes[shapeIndex];
+          createShapeMode = "edit";
+          createShapeEditingId = shape.id;
+          createShapeOriginal = cloneShape(shape);
           renderCreateShapeFieldsetsList();
-          createShapeDraftId = createShapeId();
+          populateCreateShapeForm(shape);
+          const referencing = getFieldsetIndexesReferencingShape(shape.id);
+          setCreateShapeFieldsetSelections(referencing);
+          createShapeDraftId = shape.id;
+          if (createShapeModalTitle) {
+            createShapeModalTitle.textContent = "Edit Shape";
+          }
+          if (createShapeModalSave) {
+            createShapeModalSave.textContent = "Edit Shape";
+          }
+          if (createShapeModalDelete) {
+            createShapeModalDelete.hidden = false;
+          }
           updateCreateShapeDimensionVisibility();
           updateCreateShapePreview();
           createShapeModalOffsetX = 0;
           createShapeModalOffsetY = 0;
           ensureCreateShapePosition();
+          if (createShapeModal) {
+            createShapeModal.dataset.mode = "edit";
+          }
           createShapeModal?.classList.add("active");
           createShapeModal?.setAttribute("aria-hidden", "false");
         }
@@ -5559,12 +5793,27 @@ function parsePolygonTrace(doc) {
         function closeCreateShapeModal() {
           clearCreateShapePreview();
           createShapeDraftId = null;
+          createShapeMode = "create";
+          createShapeEditingId = null;
+          createShapeOriginal = null;
+          if (createShapeModalTitle) {
+            createShapeModalTitle.textContent = "Add Shape";
+          }
+          if (createShapeModalSave) {
+            createShapeModalSave.textContent = "Add Shape";
+          }
+          if (createShapeModalDelete) {
+            createShapeModalDelete.hidden = true;
+          }
+          if (createShapeModal) {
+            createShapeModal.dataset.mode = "create";
+          }
           createShapeModal?.classList.remove("active");
           createShapeModal?.setAttribute("aria-hidden", "true");
         }
 
         if (overlayShapeBtn) {
-          overlayShapeBtn.addEventListener("click", openCreateShapeModal);
+          overlayShapeBtn.addEventListener("click", openCreateShapeModalForCreate);
         }
         if (overlayFieldBtn) {
           overlayFieldBtn.addEventListener("click", () => {
@@ -5593,17 +5842,33 @@ function parsePolygonTrace(doc) {
               return;
             }
             applyShapeKind(draft, draft.kind);
-            triorbShapes.push(JSON.parse(JSON.stringify(draft)));
-            const selectedFieldsets = getCreateShapeSelectedFieldsets();
-            const attached = attachShapeToFieldsets(draft.id, selectedFieldsets);
-            renderTriOrbShapes();
-            renderTriOrbShapeCheckboxes();
-            renderFieldsets();
-            renderFigure();
-            setStatus(
-              `${draft.name} を追加しました（${attached} フィールドに紐付け）。`,
-              "ok"
-            );
+            if (createShapeMode === "edit" && createShapeEditingId) {
+              const shapeIndex = triorbShapes.findIndex((shape) => shape.id === createShapeEditingId);
+              if (shapeIndex < 0) {
+                setStatus("Selected shape was not found.", "error");
+                return;
+              }
+              const updatedShape = JSON.parse(JSON.stringify(draft));
+              updatedShape.visible = triorbShapes[shapeIndex].visible !== false;
+              triorbShapes[shapeIndex] = updatedShape;
+              const selectedFieldsets = getCreateShapeSelectedFieldsets();
+              detachShapeFromAllFieldsets(updatedShape.id);
+              const attached = attachShapeToFieldsets(updatedShape.id, selectedFieldsets);
+              renderTriOrbShapes();
+              renderTriOrbShapeCheckboxes();
+              renderFieldsets();
+              renderFigure();
+              setStatus(`${updatedShape.name} を更新しました（${attached} 件の Fieldset に適用）`, "ok");
+            } else {
+              triorbShapes.push(JSON.parse(JSON.stringify(draft)));
+              const selectedFieldsets = getCreateShapeSelectedFieldsets();
+              const attached = attachShapeToFieldsets(draft.id, selectedFieldsets);
+              renderTriOrbShapes();
+              renderTriOrbShapeCheckboxes();
+              renderFieldsets();
+              renderFigure();
+              setStatus(`${draft.name} を追加しました（${attached} 件の Fieldset に適用）`, "ok");
+            }
             closeCreateShapeModal();
           });
         }
@@ -5755,7 +6020,11 @@ function parsePolygonTrace(doc) {
           const meta = point?.meta || point?.data?.meta;
           if (meta?.kind) {
             console.debug("trigger modal", meta);
-            renderShapeModal(meta);
+            if (meta.isTriOrbShape && meta.shapeId) {
+              openCreateShapeModalForEdit(meta.shapeId);
+            } else {
+              renderShapeModal(meta);
+            }
           }
         });
         if (shapeModal) {
@@ -5812,3 +6081,4 @@ function parsePolygonTrace(doc) {
     </script>
   </body>
 </html>
+
