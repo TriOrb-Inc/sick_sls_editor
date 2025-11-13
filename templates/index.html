@@ -773,11 +773,13 @@
       }
       .field-create-grid {
         display: flex;
+        flex-flow: nowrap row;
+        justify-content:space-around;
         gap: 1rem;
       }
       .field-create-grid .field-create-column {
-        flex: 1;
-        min-width: 0;
+        flex: flex;
+        justify-content:space-around;
       }
       .field-create-column {
         border: 1px solid rgba(15, 23, 42, 0.1);
@@ -796,8 +798,13 @@
         display: flex;
         flex-wrap: wrap;
         gap: 0.4rem;
-        max-height: 180px;
+        max-height: 140px;
         overflow-y: auto;
+      }
+      .shape-list-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
       }
       .shape-list button {
         padding: 0.4rem 0.6rem;
@@ -1008,14 +1015,14 @@
                 Field Name
                 <input type="text" id="create-field-name-0" placeholder="Field 1 name" />
               </label>
-              <label>
-                Type
-                <select id="create-field-type-0" data-field-index="0">
-                  <option value="Field">Field</option>
-                  <option value="CutOut">CutOut</option>
-                </select>
-              </label>
-              <div class="shape-list" id="create-field-shape-list-0"></div>
+              <div class="shape-list-group">
+                <p>Type = Field</p>
+                <div class="shape-list" id="create-field-shape-list-0-field"></div>
+              </div>
+              <div class="shape-list-group">
+                <p>Type = CutOut</p>
+                <div class="shape-list" id="create-field-shape-list-0-cutout"></div>
+              </div>
             </div>
             <div class="field-create-column">
               <h4>Field 2 (Warning)</h4>
@@ -1023,14 +1030,14 @@
                 Field Name
                 <input type="text" id="create-field-name-1" placeholder="Field 2 name" />
               </label>
-              <label>
-                Type
-                <select id="create-field-type-1" data-field-index="1">
-                  <option value="Field">Field</option>
-                  <option value="CutOut">CutOut</option>
-                </select>
-              </label>
-              <div class="shape-list" id="create-field-shape-list-1"></div>
+              <div class="shape-list-group">
+                <p>Type = Field</p>
+                <div class="shape-list" id="create-field-shape-list-1-field"></div>
+              </div>
+              <div class="shape-list-group">
+                <p>Type = CutOut</p>
+                <div class="shape-list" id="create-field-shape-list-1-cutout"></div>
+              </div>
             </div>
           </div>
           <div class="modal-section preview-note">
@@ -1469,10 +1476,23 @@
           document.getElementById("create-field-type-0"),
           document.getElementById("create-field-type-1"),
         ];
+        const shapeKinds = ["Field", "CutOut"];
         const createFieldShapeLists = [
-          document.getElementById("create-field-shape-list-0"),
-          document.getElementById("create-field-shape-list-1"),
+          {
+            Field: document.getElementById("create-field-shape-list-0-field"),
+            CutOut: document.getElementById("create-field-shape-list-0-cutout"),
+          },
+          {
+            Field: document.getElementById("create-field-shape-list-1-field"),
+            CutOut: document.getElementById("create-field-shape-list-1-cutout"),
+          },
         ];
+        const createFieldModalFieldShapeSelections = createFieldShapeLists.map(() =>
+          shapeKinds.reduce((acc, kind) => {
+            acc[kind] = new Set();
+            return acc;
+          }, {})
+        );
         const fieldTypeLabels = ["ProtectiveSafeBlanking", "WarningSafeBlanking"];
         const createRectOriginXInput = document.getElementById("create-rect-originx");
         const createRectOriginYInput = document.getElementById("create-rect-originy");
@@ -2953,56 +2973,64 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
 
         function renderCreateFieldShapeLists() {
           if (!triorbShapes.length) {
-            createFieldShapeLists.forEach((list) => {
-              if (list) {
-                list.innerHTML = '<p class="toggle-pill-empty">No shapes available.</p>';
-              }
+            createFieldShapeLists.forEach((listObj) => {
+              Object.values(listObj).forEach((element) => {
+                if (element) {
+                  element.innerHTML = '<p class="toggle-pill-empty">No shapes available.</p>';
+                }
+              });
             });
             updateFieldModalPreview();
             return;
           }
-          createFieldShapeLists.forEach((list, fieldIndex) => {
-            if (!list) {
-              return;
-            }
-            list.innerHTML = triorbShapes
-              .map((shape) => {
-                const shapeId = escapeHtml(shape.id);
-                const shapeName = escapeHtml(shape.name || shape.id);
-                return `
-                  <button
-                    type="button"
-                    class="toggle-pill-btn create-field-shape-btn"
-                    data-field-index="${fieldIndex}"
-                    data-shape-id="${shapeId}"
-                    aria-pressed="false"
-                  >
-                    <span>${shapeName}</span>
-                    <span class="shape-type">${escapeHtml(shape.type)}</span>
-                  </button>`;
-              })
-              .join("");
-            setCreateFieldShapeSelections(fieldIndex, Array.from(createFieldModalFieldShapeSelections[fieldIndex]));
+          createFieldShapeLists.forEach((listObj, fieldIndex) => {
+            shapeKinds.forEach((kind) => {
+              const list = listObj[kind];
+              if (!list) {
+                return;
+              }
+              list.innerHTML = triorbShapes
+                .map((shape) => {
+                  const shapeId = escapeHtml(shape.id);
+                  const shapeName = escapeHtml(shape.name || shape.id);
+                  return `
+                    <button
+                      type="button"
+                      class="toggle-pill-btn create-field-shape-btn"
+                      data-field-index="${fieldIndex}"
+                      data-kind="${kind}"
+                      data-shape-id="${shapeId}"
+                      aria-pressed="false"
+                    >
+                      <span>${shapeName}</span>
+                      <span class="shape-type">${escapeHtml(shape.type)}</span>
+                    </button>`;
+                })
+                .join("");
+              setCreateFieldShapeSelections(fieldIndex, kind, Array.from(createFieldModalFieldShapeSelections[fieldIndex][kind]));
+            });
           });
         }
 
-        function setCreateFieldShapeSelections(fieldIndex, shapeIds = []) {
-          const selection = createFieldModalFieldShapeSelections[fieldIndex];
-          if (!selection) {
-            return;
-          }
+        function setCreateFieldShapeSelections(fieldIndex, kind, shapeIds = []) {
+          const selection =
+            createFieldModalFieldShapeSelections[fieldIndex]?.[kind] ||
+            new Set();
           selection.clear();
           shapeIds.forEach((shapeId) => {
             if (shapeId) {
               selection.add(shapeId);
             }
           });
-          const list = createFieldShapeLists[fieldIndex];
+          const list = createFieldShapeLists[fieldIndex]?.[kind];
           if (!list) {
             updateFieldModalPreview();
             return;
           }
           list.querySelectorAll(".create-field-shape-btn").forEach((button) => {
+            if (button.dataset.kind !== kind) {
+              return;
+            }
             const shapeId = button.dataset.shapeId;
             const isActive = selection.has(shapeId);
             button.classList.toggle("active", isActive);
@@ -3013,13 +3041,19 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
 
         function handleCreateFieldShapeToggle(event) {
           const button = event.target.closest(".create-field-shape-btn");
-          if (!button || button.dataset.fieldIndex === undefined || !button.dataset.shapeId) {
+          if (
+            !button ||
+            button.dataset.fieldIndex === undefined ||
+            !button.dataset.shapeId ||
+            !button.dataset.kind
+          ) {
             return;
           }
           event.preventDefault();
           const fieldIndex = Number(button.dataset.fieldIndex);
+          const kind = button.dataset.kind;
           const shapeId = button.dataset.shapeId;
-          const selection = createFieldModalFieldShapeSelections[fieldIndex];
+          const selection = createFieldModalFieldShapeSelections[fieldIndex]?.[kind];
           if (!selection) {
             return;
           }
@@ -3035,16 +3069,21 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         }
 
         function updateFieldModalPreview() {
-          const entries = createFieldModalFieldShapeSelections.map((selection, fieldIndex) => {
-            const fieldName =
-              createFieldNameInputs[fieldIndex]?.value?.trim() || `Field ${fieldIndex + 1}`;
-            const fieldType = fieldTypeLabels[fieldIndex] || fieldTypeLabels[0];
-            const shapeIds = Array.from(selection);
-            const typeValue = createFieldTypeSelects[fieldIndex]?.value || "Field";
-            return { fieldName, fieldType, shapeIds, typeValue };
+          const entries = [];
+          createFieldModalFieldShapeSelections.forEach((selection, fieldIndex) => {
+            shapeKinds.forEach((kind) => {
+              const shapeIds = Array.from(selection[kind] || []);
+              if (!shapeIds.length) {
+                return;
+              }
+              const fieldName =
+                createFieldNameInputs[fieldIndex]?.value?.trim() || `Field ${fieldIndex + 1}`;
+              const fieldType = fieldTypeLabels[fieldIndex] || fieldTypeLabels[0];
+              const typeValue = createFieldTypeSelects[fieldIndex]?.value || "Field";
+              entries.push({ fieldName, fieldType, shapeIds, typeValue, kind });
+            });
           });
-          const hasShapes = entries.some((entry) => entry.shapeIds.length);
-          fieldModalPreview = hasShapes ? entries : null;
+          fieldModalPreview = entries.length ? entries : null;
           renderFigure();
         }
 
@@ -3150,9 +3189,11 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
 
         function closeCreateFieldModal() {
           fieldModalPreview = null;
-          createFieldModalFieldShapeSelections.forEach((_, index) =>
-            setCreateFieldShapeSelections(index, [])
-          );
+          createFieldModalFieldShapeSelections.forEach((_, fieldIndex) => {
+            shapeKinds.forEach((kind) => {
+              setCreateFieldShapeSelections(fieldIndex, kind, []);
+            });
+          });
           if (createFieldModal) {
             createFieldModal.dataset.mode = "create";
             createFieldModal.classList.remove("active");
@@ -3165,31 +3206,40 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const fieldsetName =
             createFieldsetNameInput?.value?.trim() || defaultFieldsetName();
           const latinKey = createFieldsetLatinInput?.value?.trim() || generateLatin9Key();
-          const fields = createFieldNameInputs.map((input, index) => {
-            const name = input?.value?.trim() || `Field ${index + 1}`;
-            const shapeIds = Array.from(createFieldModalFieldShapeSelections[index] || []).filter(
-              (shapeId) => triorbShapes.some((shape) => shape.id === shapeId)
-            );
-            const typeValue = createFieldTypeSelects[index]?.value || "Field";
-            return {
-              attributes: {
-                Name: name,
-                Fieldtype: fieldTypeLabels[index] || fieldTypeLabels[0],
-                Type: typeValue,
-                MultipleSampling: globalMultipleSampling ?? "2",
-                Resolution: globalResolution ?? "70",
-                TolerancePositive: globalTolerancePositive ?? "0",
-                ToleranceNegative: globalToleranceNegative ?? "0",
-              },
-              shapeRefs: shapeIds.map((shapeId) => ({ shapeId })),
-            };
+          const entries = [];
+          createFieldModalFieldShapeSelections.forEach((selection, fieldIndex) => {
+            shapeKinds.forEach((kind) => {
+              const shapeIds = Array.from(selection[kind] || []);
+              if (!shapeIds.length) {
+                return;
+              }
+              const fieldName =
+                createFieldNameInputs[fieldIndex]?.value?.trim() || `Field ${fieldIndex + 1}`;
+              const typeValue = createFieldTypeSelects[fieldIndex]?.value || "Field";
+              entries.push({
+                attributes: {
+                  Name: fieldName,
+                  Fieldtype: fieldTypeLabels[fieldIndex] || fieldTypeLabels[0],
+                  Type: kind,
+                  MultipleSampling: globalMultipleSampling ?? "2",
+                  Resolution: globalResolution ?? "70",
+                  TolerancePositive: globalTolerancePositive ?? "0",
+                  ToleranceNegative: globalToleranceNegative ?? "0",
+                },
+                shapeRefs: shapeIds.map((shapeId) => ({ shapeId })),
+              });
+            });
           });
+          if (!entries.length) {
+            setStatus("Shape を1つ以上選択してください。", "error");
+            return false;
+          }
           const newFieldset = {
             attributes: {
               Name: fieldsetName,
               NameLatin9Key: latinKey,
             },
-            fields,
+            fields: entries,
             visible: true,
           };
           fieldsets.push(newFieldset);
@@ -6160,35 +6210,58 @@ function parsePolygonTrace(doc) {
           });
         }
 
-        function openCreateShapeModalForCreate() {
-          createShapeMode = "create";
-          createShapeEditingId = null;
-          createShapeOriginal = null;
-          resetCreateShapeForm();
-          renderCreateShapeFieldsetsList();
-          setCreateShapeFieldsetSelections([]);
-          createShapeDraftId = createShapeId();
-          if (createShapeModalTitle) {
-            createShapeModalTitle.textContent = "Add Shape";
-          }
-          if (createShapeModalSave) {
-            createShapeModalSave.textContent = "Add Shape";
-          }
-          if (createShapeModalDelete) {
-            createShapeModalDelete.hidden = true;
-          }
-          updateCreateShapeDimensionVisibility();
-          updateCreateShapePreview();
-          createShapeModalOffsetX = 0;
-          createShapeModalOffsetY = 0;
+        function openCreateShapeModalForCreate() {
+
+          createShapeMode = "create";
+
+          createShapeEditingId = null;
+
+          createShapeOriginal = null;
+
+          resetCreateShapeForm();
+
+          renderCreateShapeFieldsetsList();
+
+          setCreateShapeFieldsetSelections([]);
+
+          createShapeDraftId = createShapeId();
+
+          if (createShapeModalTitle) {
+
+            createShapeModalTitle.textContent = "Add Shape";
+
+          }
+
+          if (createShapeModalSave) {
+
+            createShapeModalSave.textContent = "Add Shape";
+
+          }
+
+          if (createShapeModalDelete) {
+
+            createShapeModalDelete.hidden = true;
+
+          }
+
+          updateCreateShapeDimensionVisibility();
+
+          updateCreateShapePreview();
+
+          createShapeModalOffsetX = 0;
+
+          createShapeModalOffsetY = 0;
+
           ensureCreateShapePosition();
           if (createShapeModal) {
             createShapeModal.dataset.mode = "create";
           }
           createShapeModal?.classList.add("active");
           createShapeModal?.setAttribute("aria-hidden", "false");
-        }
-
+        }
+
+
+
                 function openCreateShapeModalForEdit(shapeId) {
           const shapeIndex = triorbShapes.findIndex((shape) => shape.id === shapeId);
           if (shapeIndex < 0) {
@@ -6346,10 +6419,12 @@ function parsePolygonTrace(doc) {
             }
           });
         }
-        createFieldShapeLists.forEach((list) => {
-          if (list) {
-            list.addEventListener("click", handleCreateFieldShapeToggle);
-          }
+        createFieldShapeLists.forEach((listObj) => {
+          Object.values(listObj).forEach((list) => {
+            if (list) {
+              list.addEventListener("click", handleCreateFieldShapeToggle);
+            }
+          });
         });
         createFieldNameInputs.forEach((input) => {
           if (input) {
