@@ -5490,7 +5490,7 @@ function parsePolygonTrace(doc) {
         if (fieldsetCheckboxes) {
           fieldsetCheckboxes.addEventListener("click", (event) => {
             const button = event.target.closest(".toggle-pill-btn");
-            if (!button || !button.dataset.fieldsetIndex) {
+            if (!button || button.dataset.fieldsetIndex === undefined) {
               return;
             }
             event.preventDefault();
@@ -5500,8 +5500,12 @@ function parsePolygonTrace(doc) {
             button.setAttribute("aria-pressed", String(nextState));
             if (fieldsets[index]) {
               fieldsets[index].visible = nextState;
-              setStatus(`${draft.name} を追加しました（${attached} 件の Fieldset に適用）`, "ok");
-
+              const fieldsetName =
+                fieldsets[index].attributes?.Name || `Fieldset ${index + 1}`;
+              setStatus(
+                `${fieldsetName} を ${nextState ? "表示" : "非表示"} にしました。`,
+                nextState ? "ok" : "warning"
+              );
               renderFigure();
             }
           });
