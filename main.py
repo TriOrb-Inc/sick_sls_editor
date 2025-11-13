@@ -9,12 +9,17 @@ from flask import Flask, render_template
 
 from plotly_panel import build_sample_figure
 
+# アプリで参照するサンプル XML のパス。
+# 実際の編集データがまだない環境でも UI が壊れないよう、
+# 読み込みに失敗した場合はすべてフォールバックデータを返す方針とする。
 SAMPLE_XML = Path("sample/20251111-105839_ScannerDTM-Export.sgexml")
 
 
 def load_menu_items() -> List[Dict[str, str]]:
     """Return second-level nodes for the side menu."""
 
+    # メニューの最低限の構造はハードコードしておき、
+    # XML 解析に失敗した場合でもアプリが操作できるようにする。
     fallback = [
         {"tag": "FileInfo", "summary": "Metadata"},
         {"tag": "Export_ScanPlanes", "summary": "Scan plane definitions"},
@@ -28,6 +33,7 @@ def load_menu_items() -> List[Dict[str, str]]:
     try:
         tree = ET.parse(SAMPLE_XML)
     except ET.ParseError:
+        # XML の構造が壊れていた場合も即フォールバック。
         return fallback
 
     root = tree.getroot()
@@ -35,6 +41,7 @@ def load_menu_items() -> List[Dict[str, str]]:
     for child in root:
         summary_parts = []
         if child.attrib:
+            # メニュー表示の補助情報として、先頭の属性を要約に含める。
             for key, value in list(child.attrib.items())[:2]:
                 summary_parts.append(f"{key}={value}")
         summary = " / ".join(summary_parts) if summary_parts else "No additional attributes"
@@ -46,12 +53,14 @@ def load_menu_items() -> List[Dict[str, str]]:
 def load_fileinfo_fields() -> List[Dict[str, str]]:
     """Extract FileInfo child nodes for editing."""
 
+    # FileInfo が存在しない場合は空配列を返し、テンプレート側で空状態を処理する。
     if not SAMPLE_XML.exists():
         return []
 
     try:
         tree = ET.parse(SAMPLE_XML)
     except ET.ParseError:
+        # XML の読み込みに失敗してもアプリが落ちないよう防御的に扱う。
         return []
 
     root = tree.getroot()
@@ -61,6 +70,7 @@ def load_fileinfo_fields() -> List[Dict[str, str]]:
 
     fields: List[Dict[str, str]] = []
     for child in file_info:
+        # 各要素をタグ名とテキスト値に分解してテンプレートに渡す。
         value = (child.text or "").strip()
         fields.append({"tag": child.tag, "value": value})
 
@@ -70,6 +80,8 @@ def load_fileinfo_fields() -> List[Dict[str, str]]:
 def load_scan_planes() -> List[Dict[str, Any]]:
     """Return structured data for Export_ScanPlanes."""
 
+    # ScanPlane 情報は TriOrb の扇形描画に利用されるため、
+    # 解析できない場合は空配列を返し Plotly 側で分岐する。
     if not SAMPLE_XML.exists():
         return []
 
@@ -85,6 +97,7 @@ def load_scan_planes() -> List[Dict[str, Any]]:
 
     scan_planes: List[Dict[str, Any]] = []
     for plane in export.findall("ScanPlane"):
+        # 各 ScanPlane を辞書化し、Devices 配下の要素もネストして保持する。
         plane_data: Dict[str, Any] = {
             "attributes": dict(plane.attrib),
             "devices": [],
@@ -99,10 +112,14 @@ def load_scan_planes() -> List[Dict[str, Any]]:
 
 
 def _generate_shape_id() -> str:
+    # XML に ID が欠落している場合でも UI でユニークに扱えるよう、
+    # ランダムな ID を生成するユーティリティ。
     return f"shape-{uuid.uuid4().hex[:8]}"
 
 
 def _build_shape_key(shape_type: str, attrs: Dict[str, str], points: Optional[List[Dict[str, str]]] = None) -> str:
+    # TriOrb 共有図形を同一性判定するためのキーを生成。
+    # 図形タイプと属性値、必要に応じて座標列を連結して比較する。
     attr_items = "/".join(f"{key}={attrs.get(key,"")}" for key in sorted(attrs))
     key_parts = [shape_type, attr_items]
     if shape_type == "Polygon" and points is not None:
@@ -112,12 +129,14 @@ def _build_shape_key(shape_type: str, attrs: Dict[str, str], points: Optional[Li
 
 
 def _parse_polygon_node(polygon_node: ET.Element) -> Tuple[Dict[str, str], List[Dict[str, str]]]:
+    # Polygon 要素は座標リストを含むため、属性と座標を分離して返す。
     attrs = dict(polygon_node.attrib)
     points = [dict(point.attrib) for point in polygon_node.findall("Point")]
     return attrs, points
 
 
 def _parse_rectangle_node(rectangle_node: ET.Element) -> Dict[str, str]:
+    # Rectangle / Circle は属性のみなので辞書化して返すだけ。
     return dict(rectangle_node.attrib)
 
 
@@ -126,6 +145,9 @@ def _parse_circle_node(circle_node: ET.Element) -> Dict[str, str]:
 
 
 def _load_triorb_shapes_from_root(root: ET.Element) -> Tuple[List[Dict[str, Any]], str]:
+    # TriOrb_SICK_SLS_Editor セクションから共有図形を抽出する。
+    # TriOrb は Fieldset とは独立に Shape を再利用できるため、
+    # 先にすべて集めておく必要がある。
     tri_node = root.find("TriOrb_SICK_SLS_Editor")
     if tri_node is None:
         return [], ""
@@ -137,6 +159,7 @@ def _load_triorb_shapes_from_root(root: ET.Element) -> Tuple[List[Dict[str, Any]
 
     shapes: List[Dict[str, Any]] = []
     for shape_node in shapes_parent.findall("Shape"):
+        # Shape タグに図形タイプが記録されている前提で個別の辞書に展開する。
         shape_type = shape_node.attrib.get("Type", "Polygon")
         shape_data: Dict[str, Any] = {
             "id": shape_node.attrib.get("ID") or _generate_shape_id(),
@@ -179,11 +202,15 @@ def _ensure_shape(
     hint: Optional[str] = None,
     fieldtype: Optional[str] = None,
 ) -> str:
+    # Fieldset 側に直接図形定義が書かれているケースでは、
+    # TriOrb の共有図形へ昇格させつつ ID を再利用する必要がある。
+    # registry に登録されたキーを利用して重複を排除する。
     key = _build_shape_key(shape_type, attrs, points)
     existing_id = registry.get(key)
     if existing_id:
         return existing_id
 
+    # まだ登録されていない図形は新しく作成し、TriOrb Shapes に追記する。
     shape_id = attrs.get("ID") or _generate_shape_id()
     name = hint or f"{shape_type} Shape {len(shapes) + 1}"
     shape_entry: Dict[str, Any] = {
@@ -213,6 +240,7 @@ def load_fieldsets_and_shapes() -> Tuple[Dict[str, Any], List[Dict[str, Any]], s
         "fieldsets": [],
     }
 
+    # サンプル XML がない場合は空データを返し、テンプレートで空描画に切り替える。
     if not SAMPLE_XML.exists():
         return default_payload, [], ""
 
@@ -238,6 +266,7 @@ def load_fieldsets_and_shapes() -> Tuple[Dict[str, Any], List[Dict[str, Any]], s
             continue
         shape_registry[key] = shape["id"]
 
+    # Fieldset 側を走査し、Shapes 要素がなくても TriOrb Shapes に登録されるよう補完する。
     export = root.find("Export_FieldsetsAndFields")
     if export is None:
         return default_payload, shapes, tri_source
@@ -277,6 +306,8 @@ def load_fieldsets_and_shapes() -> Tuple[Dict[str, Any], List[Dict[str, Any]], s
                         if shape_id:
                             field_data["shapeRefs"].append({"shapeId": shape_id})
                 else:
+                    # 古い XML では Field 直下に図形定義が存在する場合があるため、
+                    # TriOrb の Shapes に登録し直し、その ID を参照させる。
                     for polygon_node in field_node.findall("Polygon"):
                         attrs, points = _parse_polygon_node(polygon_node)
                         shape_id = _ensure_shape(
@@ -330,6 +361,7 @@ def load_fieldsets_and_shapes() -> Tuple[Dict[str, Any], List[Dict[str, Any]], s
 def load_root_attributes() -> Dict[str, str]:
     """Capture attributes defined on the SdImportExport root."""
 
+    # ルート属性は UI のメタ情報表示に利用される。
     if not SAMPLE_XML.exists():
         return {}
 
@@ -343,10 +375,12 @@ def load_root_attributes() -> Dict[str, str]:
 
 
 def create_app() -> Flask:
+    # Flask アプリケーションのファクトリ。
     app = Flask(__name__)
 
     @app.route("/")
     def index():
+        # Plotly 図面とサイドメニューに必要な情報をまとめてテンプレートへ渡す。
         fig = build_sample_figure()
         plot_spec = fig.to_plotly_json()
         fieldsets_payload, triorb_shapes, triorb_source = load_fieldsets_and_shapes()
@@ -369,4 +403,5 @@ app = create_app()
 
 
 if __name__ == "__main__":
+    # デバッグ目的で直接起動された場合は Flask の開発サーバーを利用する。
     app.run(debug=True)

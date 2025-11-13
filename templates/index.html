@@ -912,11 +912,14 @@
         </div>
       </div>
     </div>
+    <!-- アプリ全体のヘッダー領域 -->
     <header>
       <h1>TriOrb - SICK SLS Editor</h1>
     </header>
+    <!-- メインレイアウト: 左に Plotly 編集エリア、右に設定メニュー -->
     <main>
       <section class="content-area">
+        <!-- 図形の追加・保存などツール系 UI -->
         <div class="toolbar">
           <div class="toolbar-primary">
             <button id="btn-new" type="button">New</button>
@@ -954,6 +957,7 @@
           <div id="triorb-shape-checkboxes"></div>
         </div>
       </section>
+      <!-- サイドメニュー: XML 構造をツリー形式で表示 -->
       <aside class="side-menu">
         <h2>Structure Menu</h2>
         {% for item in menu_items %}

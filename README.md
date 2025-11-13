@@ -1,102 +1,62 @@
 # SICK SLS Editor (Web)
 
-Flask + Plotly を使った Web 版 SICK SLS Editor。ブラウザ上で `.sgexml` (SdImportExport) をロードして構造や図形を編集し、TriOrb メニュー／Structure メニューから `Export_ScanPlanes` / `Export_FieldsetsAndFields` 内容を直接制御できます。
+Flask と Plotly で構築された SICK SLS Editor の Web 版です。`.sgexml` (SdImportExport) をロードし、Structure メニューや TriOrb メニューから編集内容をブラウザ上で確認できます。
 
-## 開発環境の準備
-```powershell
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-python main.py        # flask --app main run と同様の起動
-```
-http://127.0.0.1:5000/ にアクセスして UI を確認。
+## 特徴まとめ
+- **Structure メニュー**: FileInfo / Export_ScanPlanes / Export_FieldsetsAndFields など XML の主要セクションを編集。GlobalGeometry や Devices は必要時に展開して利用します。
+- **TriOrb メニュー**: Field セクションの MultipleSampling / Resolution / Tolerance± を一括調整し、Fieldset 側へ同期します。`?debug` を付けると Fieldset の対応入力も表示されます。
+- **図形編集**: Polygon / Circle / Rectangle を Plotly 上で表示し、共有図形 (TriOrb Shapes) と連動します。
+- **Plotly 表示**: Fieldset 図形と TriOrb の FieldOfView 扇を重ねて表示し、レスポンシブなレイアウトで編集体験を最適化しています。
 
-## UI の特徴
-- **Structure Menu**：FileInfo、Export_ScanPlanes、Export_FieldsetsAndFields を操作。GlobalGeometry / Devices セクションはデフォルトで閉じており、必要なときに展開。
-- **TriOrb Menu**：Field セクションから MultipleSampling / Resolution / TolerancePositive / ToleranceNegative を一括制御。変更値はすべての Fieldset に即時同期され、`?debug` を付けた場合のみ Fieldset 側の該当入力を表示。
-- **図形編集**：Polygon / Circle / Rectangle に追加・削除ボタンを配置。Polygon は頂点の追加／削除も可能。編集後も Fieldset / Field の `<details>` 展開状態を保ったまま再描画。
-- **Plotly 表示**：Fieldset 図形と TriOrb の FieldOfView 扇を同時表示。扇は最背面に描画され、透明塗りつぶし＋破線で視認性を確保。Plotly は画面幅に合わせてレスポンシブにリサイズ、右サイドバーは固定幅で縦スクロール。
-- **デバイス**：ScanPlanes / Fieldsets に Right／Left デバイスが初期追加され、Typekey 選択時には対応する TypekeyVersion / TypekeyDisplayVersion を自動反映。
+ローカル端末でのセットアップ例です。
 
-## XML 入出力のルール
-- `SdImportExport` ルートは `xmlns:xsd` / `xmlns:xsi` と現在 Timestamp を含む。
-- Export_FieldsetsAndFields の形状データ（Polygon/Circle/Rectangle）を UI ↔ XML で一致させる。
-- TriOrb の設定値は `TriOrb_SICK_SLS_Editor` 配下にのみ出力。
+python main.py  # または flask --app main run
+ブラウザで http://127.0.0.1:5000/ を開き、UI を確認します。
 
-## テスト
-- 手動確認: `README` の手順でアプリを起動後 `TestMatrix.md` を参照し、各項目（モーダル編集、TriOrb/Fieldset の同期、Device Fan など）を順に操作して目視確認する。
-- 自動化テスト（Playwright）: `pip install playwright`, `playwright install` を実行後、Flask サーバを起動して `python tests/playwright/test_shapes.py` を走らせる。TriOrb メニューのグローバル値が Fieldset に同期される一連の挙動を確認する簡易 E2E スクリプト。
- - 自動化テスト（Playwright）: `pip install playwright`, `playwright install` を実行後、Flask サーバを起動して `python tests/playwright/test_shapes.py` を走らせる。TriOrb メニューのグローバル値が Fieldset に同期される一連の挙動を確認する簡易 E2E スクリプト。
-
-### Playwright + Flask を PowerShell で一括実行
-- PowerShell では `run_playwright.ps1` を使って Flask サーバー起動 → Playwright 実行 → サーバ終了までを一括で行えます。
-1. PowerShell でリポジトリルートに移動し、仮想環境をアクティベート（必要であれば）。
-2. 実行ポリシーによりスクリプトがブロックされる可能性があるので、現在のセッションだけ緩めてから実行します。
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-   .\run_playwright.ps1
+### GitHub Codespaces を利用する場合
+1. GitHub 上で本リポジトリを開き、`Code` ボタンから `Create codespace on main` を選択します。
+2. Codespaces が起動したら VS Code のターミナルで次を実行します。
+   ```bash
+   pip install -r requirements.txt
+   flask --app main run --host 0.0.0.0 --port 5000
    ```
-3. または PowerShell を起動し直して `-ExecutionPolicy Bypass` をつけて直接スクリプトを呼び出す方法も使えます。
-   ```powershell
-   pwsh -ExecutionPolicy Bypass -File .\run_playwright.ps1
-   ```
-4. スクリプト内で Python サーバーをバックグラウンド起動し、Playwright スクリプトを呼び出すため、実行中に手動で UI を触る必要はありません。
+3. `Ports` タブに表示される 5000 番ポートを `Open in Browser` してアプリを確認します。
+4. Playwright を使用する場合は追加で `playwright install` を実行します。
 
+- `SdImportExport` ルートには `xmlns:xsd` / `xmlns:xsi` と現在の Timestamp を含めます。
+- Export_FieldsetsAndFields の Polygon / Circle / Rectangle は UI と XML で必ず同期させます。
+- TriOrb の設定値は `TriOrb_SICK_SLS_Editor` 配下で管理し、FileInfo など他セクションへ重複させません。
+### 単体テスト
+- Flask レイヤーの基本的な動作確認には `pytest` を使用します。
+  ```bash
+  pytest
+  ```
 
-## 静的サイトへの変換手順
-1. Flaskアプリを静的HTMLに変換
-	```bash
-	python freeze.py
-	```
-	`docs/` ディレクトリに静的ファイルが生成されます。
-
-2. ローカルで静的サイトを検証
-	```bash
-	cd build
-	python -m http.server 8000
-	```
-	ブラウザで http://localhost:8000 を開いて動作確認。
-
-## GitHub Pages へのデプロイ手順（mike利用）
-1. mike をインストール
-	```bash
-	pip install mike
-	```
-
-2. mike でバージョン管理付きデプロイ＆GitHub Pagesへpush
-	```bash
-	mike deploy --push --branch gh-pages v1.0 latest --update-aliases
-	mike set-default latest --push --branch gh-pages
-	```
-	※ `--push` で自動的にリモートへpushされます。手動で `git add/commit/push` は不要です。
-
-3. GitHub Pages の公開設定で `gh-pages` ブランチ or `docs/` ディレクトリを指定
-
-## デプロイ後・ローカルでのサイト検証方法
-### ローカルサーバーで確認
-`docs/`ディレクトリと`mkdocs.yml`がある状態で、以下のコマンドを実行します。
-
-```bash
-mkdocs serve
-# または
-mike serve
-```
-
-http://localhost:8000 でローカルプレビューが可能です。
-
-### GitHub Pages で確認
-1. GitHub Pages のURL（例: `https://<ユーザー名>.github.io/<リポジトリ名>/`）にアクセスし、最新の静的サイトが正しく表示されるか確認します。
-2. キャッシュが残っている場合は、ブラウザのリロード（Ctrl+F5など）で最新内容を取得してください。
-3. バージョン管理を使っている場合は、`https://<ユーザー名>.github.io/<リポジトリ名>/latest/` など、mikeで設定したバージョンURLも確認してください。
-
-
-## ファビコン・バージョン切り替えメニュー対応
-- `docs/`ディレクトリに`favicon.ico`を配置し、`mkdocs.yml`に以下を追記：
-	```yaml
-	extra:
-		favicon: favicon.ico
-	```
-- バージョン切り替えメニューを表示したい場合は、`mkdocs-material`テーマを利用：
+### Playwright による E2E テスト
+1. 依存パッケージをインストールします。
+   ```bash
+   pip install playwright
+   playwright install
+2. 別ターミナルで Flask サーバーを起動します。
+3. `python tests/playwright/test_shapes.py` を実行すると、TriOrb グローバル値が Fieldset に同期することを検証できます。
+4. PowerShell では `run_playwright.ps1` でサーバー起動からテスト実行までを一括で行えます。
+## 静的サイトの生成とデプロイ
+### Frozen-Flask による静的化
+python freeze.py
+`docs/` ディレクトリに静的ファイルが生成されます。ローカル確認は `python -m http.server` などで行えます。
+### mkdocs + mike での GitHub Pages デプロイ
+1. 初回は `mike deploy --push --branch gh-pages latest --update-aliases` を実行します。
+2. `mike set-default latest --push --branch gh-pages` で `latest` を既定バージョンに設定します。
+3. GitHub Pages の設定で `gh-pages` ブランチを公開対象にします。
+## 自動化ワークフロー
+- `.github/workflows/test.yml` で push / pull request 時に `pytest` を実行します。
+- `.github/workflows/deploy.yml` は `main` へ push されたときに `mike deploy` を実行し、`gh-pages` ブランチへ自動公開します。既定では `latest` バージョンを更新します。
+## 既知の手動確認項目
+- Plotly 図面に表示される Fieldset / TriOrb Shapes の表示切り替えボタン。
+- Save / Load による `.sgexml` ファイルの入出力挙動。
+- Device の Typekey 選択時に Version 情報が反映されること。
+詳細な手動テスト項目は `TestMatrix.md` を参照してください。
+- 銉愩兗銈搞儳銉冲垏銈婃浛銇堛儭銉嬨儱銉笺倰琛ㄧず銇椼仧銇勫牬鍚堛伅銆乣mkdocs-material`銉嗐兗銉炪倰鍒╃敤锛�
 	```yaml
 	theme:
 		name: material
@@ -105,12 +65,12 @@ http://localhost:8000 でローカルプレビューが可能です。
 		version:
 			provider: mike
 	```
-	その後 `pip install mkdocs-material` を実行。
-- mikeで2つ以上のバージョンをデプロイし、`mike set-default <バージョン名>`でデフォルトを設定すると、バージョン切り替えメニューが自動で表示されます。
-	例：
+	銇濄伄寰� `pip install mkdocs-material` 銈掑疅琛屻��
+- mike銇�2銇や互涓娿伄銉愩兗銈搞儳銉炽倰銉囥儣銉偆銇椼�乣mike set-default <銉愩兗銈搞儳銉冲悕>`銇с儑銉曘偐銉儓銈掕ō瀹氥仚銈嬨仺銆併儛銉笺偢銉с兂鍒囥倞鏇裤亪銉°儖銉ャ兗銇岃嚜鍕曘仹琛ㄧず銇曘倢銇俱仚銆�
+	渚嬶細
 	```bash
 	mike deploy v1.0
 	mike deploy v2.0
 	mike set-default v2.0
-	```- **Plotly �t�B���^**�FPlotly �O���t���� Fieldset/TriOrb Shapes �̉��ؑւ̓g�O���s�� UI�BAll check/All uncheck �{�^���� UI ���ĕ`�悵�Ă����Ԃ����킹��B
-- **Save**�F\Save (TriOrb)\ �� TriOrb XML�A\Save (SICK)\ �͏]���\���� Device �P�� {DeviceName}_timestamp.sgexml �ŕۑ��BLoad ���� TriOrb ����t���O�Ŏ������ʁB
+	```- **Plotly 僼傿儖僞**丗Plotly 僌儔僼壓偺 Fieldset/TriOrb Shapes 偺壜帇愗懼偼僩僌儖僺儖 UI丅All check/All uncheck 儃僞儞偼 UI 傪嵞昤夋偟偰偐傜忬懺傪崌傢偣傞丅
+- **Save**丗\Save (TriOrb)\ 偼 TriOrb XML丄\Save (SICK)\ 偼廬棃峔憿傪 Device 扨埵 {DeviceName}_timestamp.sgexml 偱曐懚丅Load 帪偼 TriOrb 敾掕僼儔僌偱帺摦敾暿丅
