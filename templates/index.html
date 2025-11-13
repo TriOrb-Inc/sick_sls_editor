@@ -1463,7 +1463,12 @@
         }
         let createShapePreview = null;
         let createShapeDraftId = null;
-          updateGlobalFieldAttributes();
+        let createFieldModalMode = "create";
+        let createFieldModalFieldsetIndex = 0;
+        let createFieldModalEditing = null;
+        const createFieldModalShapeSelections = new Set();
+        let fieldModalPreview = null;
+        updateGlobalFieldAttributes();
 
         let lastHoverPoint = null;
         let modalShapeMeta = null;
@@ -5889,11 +5894,6 @@ function parsePolygonTrace(doc) {
         let createShapeInitialHeight = 0;
         let createShapeLastDx = 0;
         let createShapeLastDy = 0;
-        let createFieldModalMode = "create";
-        let createFieldModalFieldsetIndex = 0;
-        let createFieldModalEditing = null;
-        const createFieldModalShapeSelections = new Set();
-        let fieldModalPreview = null;
         function ensureCreateShapePosition() {
           if (createShapeModalWindow) {
             createShapeModalWindow.style.transform = `translate(${createShapeModalOffsetX}px, ${createShapeModalOffsetY}px)`;
