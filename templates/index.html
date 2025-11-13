@@ -1470,6 +1470,7 @@
           document.getElementById("create-field-shape-list-0"),
           document.getElementById("create-field-shape-list-1"),
         ];
+        const fieldTypeLabels = ["ProtectiveSafeBlanking", "WarningSafeBlanking"];
         const createRectOriginXInput = document.getElementById("create-rect-originx");
         const createRectOriginYInput = document.getElementById("create-rect-originy");
         const createRectWidthInput = document.getElementById("create-rect-width");
@@ -2946,8 +2947,6 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               </button>
             </div>`;
         }
-
-        const fieldTypeLabels = ["ProtectiveSafeBlanking", "WarningSafeBlanking"];
 
         function renderCreateFieldShapeLists() {
           if (!triorbShapes.length) {
