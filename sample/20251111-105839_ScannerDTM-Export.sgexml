@@ -1,11 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<SdImportExport xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Timestamp="2025-11-11T01:58:44.6531564Z" Commentary="" Hash="0835FD278D7CC3C3C7CF2A2872DA772020A46E3D1E4B6FF93D5FC242CB2EA042CB9F33C38E4006EA160A969DA725A1134AC8FE5A45A87380DBC5C998B757CB5F">
+<SdImportExport xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Timestamp="2025-11-14T00:43:05.3427904Z" Commentary="" Hash="F4597240036C1A3712837DAEC24EC2CAECB238F4F956CD997F2A9AD49E01C30557C6DE1AF0833122427592D6BE75AEE848345D5A3BCF604FB529DDCB71E4CF5A">
   <FileInfo>
     <ContentId>Scanner Complete Export</ContentId>
     <ContentVersion>1.6</ContentVersion>
-    <Company>TriOrb</Company>
-    <CreationToolName>TriOrb - SICK SLS Editor</CreationToolName>
-    <CreationToolVersion>2025.11</CreationToolVersion>
+    <Company>SICK AG</Company>
+    <CreationToolName>SAFETY DESIGNER ENGINEERING TOOL</CreationToolName>
+    <CreationToolVersion>2025.02</CreationToolVersion>
     <CreationComponentName>nanoScan3</CreationComponentName>
     <CreationComponentVersion>1.19.23369.0</CreationComponentVersion>
   </FileInfo>
@@ -3596,7 +3596,724 @@
           </PermanentPreset>
         </Eval>
       </Evals>
-      <FieldsConfiguration />
+      <FieldsConfiguration>
+        <ScanPlanes>
+          <ScanPlane Id="1">
+            <Index>0</Index>
+            <Name>Monitoring plane 1</Name>
+            <UserFieldsets>
+              <UserFieldset Id="1">
+                <Index>0</Index>
+                <Name>右0.65</Name>
+                <NameLatin9Key>_FSN000_9516</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="1">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="2">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="2">
+                <Index>1</Index>
+                <Name>右前0.65</Name>
+                <NameLatin9Key>_FSN001_2740</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="3">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="4">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="3">
+                <Index>2</Index>
+                <Name>前0.65</Name>
+                <NameLatin9Key>_FSN002_363F</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="5">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="6">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="4">
+                <Index>3</Index>
+                <Name>左前0.65</Name>
+                <NameLatin9Key>_FSN003_D5B2</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="7">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="8">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="5">
+                <Index>4</Index>
+                <Name>左0.65</Name>
+                <NameLatin9Key>_FSN004_EE1F</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="9">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="10">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="6">
+                <Index>5</Index>
+                <Name>左後0.65</Name>
+                <NameLatin9Key>_FSN005_528B</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="11">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="12">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="7">
+                <Index>6</Index>
+                <Name>後0.65</Name>
+                <NameLatin9Key>_FSN006_B106</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="13">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="14">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="8">
+                <Index>7</Index>
+                <Name>右後0.65</Name>
+                <NameLatin9Key>_FSN007_A079</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="15">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="16">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="9">
+                <Index>8</Index>
+                <Name>右0.3</Name>
+                <NameLatin9Key>_FSN008_D438</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="17">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="18">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="19">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="10">
+                <Index>9</Index>
+                <Name>右前0.3</Name>
+                <NameLatin9Key>_FSN009_4381</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="20">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="21">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="22">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="11">
+                <Index>10</Index>
+                <Name>前0.3</Name>
+                <NameLatin9Key>_FSN010_3CBD</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="23">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="24">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="25">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="12">
+                <Index>11</Index>
+                <Name>左前0.3</Name>
+                <NameLatin9Key>_FSN011_30C7</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="26">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="27">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="28">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="13">
+                <Index>12</Index>
+                <Name>左0.3</Name>
+                <NameLatin9Key>_FSN012_1D9D</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="29">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="30">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="31">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="14">
+                <Index>13</Index>
+                <Name>左後0.3</Name>
+                <NameLatin9Key>_FSN013_0833</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="32">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="33">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="34">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="15">
+                <Index>14</Index>
+                <Name>後0.3</Name>
+                <NameLatin9Key>_FSN014_0449</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="35">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="36">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="37">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="16">
+                <Index>15</Index>
+                <Name>右後0.3</Name>
+                <NameLatin9Key>_FSN015_7B75</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="38">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="39">
+                    <Index>1</Index>
+                    <Name>Speed down</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="40">
+                    <Index>2</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="17">
+                <Index>16</Index>
+                <Name>右0.15</Name>
+                <NameLatin9Key>_FSN016_A514</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="41">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="42">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="18">
+                <Index>17</Index>
+                <Name>右前0.15</Name>
+                <NameLatin9Key>_FSN017_1742</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="43">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="44">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="19">
+                <Index>18</Index>
+                <Name>前0.15</Name>
+                <NameLatin9Key>_FSN018_063D</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="45">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="46">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="20">
+                <Index>19</Index>
+                <Name>左前0.15</Name>
+                <NameLatin9Key>_FSN019_E5B0</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="47">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="48">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="21">
+                <Index>20</Index>
+                <Name>左0.15</Name>
+                <NameLatin9Key>_FSN020_DE1D</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="49">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="50">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="22">
+                <Index>21</Index>
+                <Name>左後0.15</Name>
+                <NameLatin9Key>_FSN021_6289</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="51">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="52">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="23">
+                <Index>22</Index>
+                <Name>後0.15</Name>
+                <NameLatin9Key>_FSN022_8104</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="53">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="54">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="24">
+                <Index>23</Index>
+                <Name>右後0.15</Name>
+                <NameLatin9Key>_FSN023_907B</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="55">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                  <UserField Id="56">
+                    <Index>1</Index>
+                    <Name>Speed up</Name>
+                    <FieldType>WarningSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="25">
+                <Index>24</Index>
+                <Name>回転</Name>
+                <NameLatin9Key>_FSN024_7C2F</NameLatin9Key>
+                <UserFields>
+                  <UserField Id="57">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+              <UserFieldset Id="26">
+                <Index>25</Index>
+                <Name>Stop(minimum)</Name>
+                <UserFields>
+                  <UserField Id="58">
+                    <Index>0</Index>
+                    <Name>Protective</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>4</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+            </UserFieldsets>
+          </ScanPlane>
+        </ScanPlanes>
+        <StatFields>
+          <PermRed Id="59" />
+          <PermGreen Id="60" />
+          <PermGreenWf Id="61" />
+        </StatFields>
+      </FieldsConfiguration>
     </Casetable>
   </Export_CasetablesAndCases>
 </SdImportExport>
