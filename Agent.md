@@ -30,7 +30,7 @@
 - リスト要素はAddとRemoveが出来ること（Removeは最低1個残すこと）
 - 数値であることが分かっているInputboxは数値入力のみを受け付けること（原則stepは1）
 - true/falseであることが分かっているInputboxはチェックボックスとすること
-- enumであることが分かっているInputboxはセレクタとすること（選択肢が4個以下の場合は横並びのトグルボタン）
+- enumであることが分かっているInputboxはセレクタとすること（選択肢が4個以下の場合は横並びのトグルボタン。無駄な余白が出来ないように気を付ける。）
 - Save (SICK) で出力されるXML構造はsample\20251111-105839_ScannerDTM-Export.sgexmlと一致すること
 
 ## Export_CasetablesAndCases編集機能要件
@@ -48,4 +48,4 @@
     - Eval/Cases/Case内のScanPlanesツリーにはScanPlaneが1個とする
     - Eval/Cases/Case/ScanPlanes/ScanPlane内のUserFieldIdはTriOrb Menuに定義されたShapeの1始まりIndex（FieldsetのIndexではなく、Field=ShapeのIndex）。ただしデフォルトで3個のFieldが末尾Indexに用意されるため、Shapeが0個のときも1-3は設定できる。
 - FieldsConfigurationツリーの基本構成は[Agent_Export-CasetablesAndCases_Casetable_FieldsConfiguration.md](./Agent_Export-CasetablesAndCases_Casetable_FieldsConfiguration.md)を参照
-    - (構造確認中)
+    - 他ツリーの設定値から機械的に自動生成される項目は編集不可とする
