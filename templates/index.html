@@ -1574,11 +1574,7 @@
       <aside class="side-menu">
         <h2>Structure Menu</h2>
         {% for item in menu_items %}
-        {% if item.tag == "FileInfo" %}
-        <details class="menu-section" open>
-        {% else %}
-        <details class="menu-section" {% if loop.first %}open{% endif %}>
-        {% endif %}
+        <details class="menu-section" {% if loop.first and item.tag != "FileInfo" %}open{% endif %}>
           <summary>{{ item.tag }}</summary>
           <div class="menu-content">
             {% if item.tag == "FileInfo" %}
