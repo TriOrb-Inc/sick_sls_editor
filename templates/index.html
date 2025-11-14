@@ -1525,7 +1525,7 @@
                 </div>
                 <div class="casetable-evals-list" id="casetable-evals"></div>
                 <p class="casetable-help-text">
-                  Eval cases stay aligned with the Cases tree and require unique UserFieldId assignments.
+                  Eval cases stay aligned with the Cases tree. UserFieldId values must map to the TriOrb shape indices (0-based) or the trailing preset slots when no shapes exist.
                 </p>
                 <p class="casetable-warning" id="casetable-evals-warning"></p>
               </div>
@@ -3824,6 +3824,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           }
           if (!triorbShapes.length) {
             triorbShapesContainer.innerHTML = "<p>No shapes defined.</p>";
+            renderCasetableEvals();
             return;
           }
           triorbShapesContainer.innerHTML = triorbShapes
@@ -3832,6 +3833,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (createFieldModal) {
             renderCreateFieldShapeLists();
           }
+          renderCasetableEvals();
         }
 
         function renderTriOrbShapeCard(shapeIndex, shape) {
@@ -4771,15 +4773,53 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return `Eval ${index + 1}`;
         }
 
-        function allocateUserFieldId(usedIds) {
-          const registry = usedIds || new Set();
-          let candidate = 1;
-          while (registry.has(String(candidate))) {
-            candidate += 1;
+        const evalUserFieldFallbackLabels = [
+          "Preset Field 1",
+          "Preset Field 2",
+          "Preset Field 3",
+        ];
+
+        function resolveEvalUserFieldOptions() {
+          const options = triorbShapes.map((shape, index) => ({
+            value: String(index),
+            label: `#${index} ${shape.name || shape.id}`,
+          }));
+          const fallbackStart = Math.max(triorbShapes.length, 1);
+          evalUserFieldFallbackLabels.forEach((label, offset) => {
+            const indexValue = fallbackStart + offset;
+            options.push({
+              value: String(indexValue),
+              label: `#${indexValue} ${label}`,
+              isFallback: true,
+            });
+          });
+          return {
+            options,
+            values: new Set(options.map((option) => option.value)),
+            defaultValue: options[0]?.value ?? "",
+          };
+        }
+
+        function buildEvalUserFieldOptionsHtml(selectedValue) {
+          const { options, defaultValue } = resolveEvalUserFieldOptions();
+          let value = selectedValue;
+          if (!value && defaultValue) {
+            value = defaultValue;
           }
-          const value = String(candidate);
-          registry.add(value);
-          return value;
+          const hasSelection = options.some((option) => option.value === value);
+          const unknownOption =
+            !hasSelection && value
+              ? `<option value="${escapeHtml(value)}" selected disabled>Unknown (#${escapeHtml(value)})</option>`
+              : "";
+          const optionHtml = options
+            .map(
+              (option) => `
+                <option value="${escapeHtml(option.value)}"${
+                  option.value === value ? " selected" : ""
+                }>${escapeHtml(option.label)}</option>`
+            )
+            .join("");
+          return { html: unknownOption + optionHtml, selectedValue: value };
         }
 
         function normalizeEvalReset(entry) {
@@ -4801,8 +4841,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           };
         }
 
-        function normalizeEvalCase(entry, caseIndex, usedIds) {
-          const registry = usedIds || new Set();
+        function normalizeEvalCase(entry, caseIndex, defaults) {
+          const optionDefaults = defaults || resolveEvalUserFieldOptions();
           const attributes = { ...(entry?.attributes || {}) };
           attributes.Id = String(caseIndex);
           const scanPlaneAttributes = { ...(entry?.scanPlane?.attributes || {}) };
@@ -4810,10 +4850,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             scanPlaneAttributes.Id = "1";
           }
           let userFieldId = String(entry?.scanPlane?.userFieldId ?? "").trim();
-          if (!userFieldId) {
-            userFieldId = allocateUserFieldId(registry);
-          } else if (!registry.has(userFieldId)) {
-            registry.add(userFieldId);
+          if (!userFieldId && optionDefaults.defaultValue) {
+            userFieldId = optionDefaults.defaultValue;
           }
           const isSplitted =
             String(entry?.scanPlane?.isSplitted ?? "false").toLowerCase() === "true"
@@ -4829,7 +4867,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           };
         }
 
-        function createDefaultEvalCase(caseIndex, usedIds) {
+        function createDefaultEvalCase(caseIndex, defaults) {
           return normalizeEvalCase(
             {
               attributes: { Id: String(caseIndex) },
@@ -4840,30 +4878,30 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               },
             },
             caseIndex,
-            usedIds
+            defaults
           );
         }
 
-        function normalizeEvalCases(list, caseCount, usedIds) {
+        function normalizeEvalCases(list, caseCount, defaults) {
           const normalized = [];
           const safeCount = Math.max(1, caseCount || 0);
           if (Array.isArray(list) && list.length) {
             list.slice(0, safeCount).forEach((entry, index) => {
-              normalized.push(normalizeEvalCase(entry, index, usedIds));
+              normalized.push(normalizeEvalCase(entry, index, defaults));
             });
           }
           while (normalized.length < safeCount) {
-            normalized.push(createDefaultEvalCase(normalized.length, usedIds));
+            normalized.push(createDefaultEvalCase(normalized.length, defaults));
           }
           return normalized;
         }
 
-        function normalizeEvalEntry(entry, evalIndex, caseCount, usedIds) {
+        function normalizeEvalEntry(entry, evalIndex, caseCount, defaults) {
           const attributes = { ...(entry?.attributes || {}) };
           if (!attributes.Id) {
             attributes.Id = String(evalIndex + 1);
           }
-          const cases = normalizeEvalCases(entry?.cases, caseCount, usedIds);
+          const cases = normalizeEvalCases(entry?.cases, caseCount, defaults);
           return {
             attributes,
             name: entry?.name ?? buildEvalName(evalIndex),
@@ -4876,7 +4914,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           };
         }
 
-        function createDefaultEval(evalIndex, caseCount, usedIds) {
+        function createDefaultEval(evalIndex, caseCount, defaults) {
           return normalizeEvalEntry(
             {
               attributes: { Id: String(evalIndex + 1) },
@@ -4889,22 +4927,22 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             },
             evalIndex,
             caseCount,
-            usedIds
+            defaults
           );
         }
 
         function normalizeCasetableEvals(data, caseCount) {
           const attributes = { ...(data?.attributes || {}) };
           const safeCount = Math.max(1, caseCount || 0);
-          const usedIds = new Set();
+          const optionDefaults = resolveEvalUserFieldOptions();
           let evalEntries = [];
           if (Array.isArray(data?.evals) && data.evals.length) {
             evalEntries = data.evals
               .slice(0, casetableEvalsLimit)
-              .map((entry, index) => normalizeEvalEntry(entry, index, safeCount, usedIds));
+              .map((entry, index) => normalizeEvalEntry(entry, index, safeCount, optionDefaults));
           }
           if (!evalEntries.length) {
-            evalEntries = [createDefaultEval(0, safeCount, usedIds)];
+            evalEntries = [createDefaultEval(0, safeCount, optionDefaults)];
           }
           return { attributes, evals: evalEntries };
         }
@@ -6912,13 +6950,18 @@ function parsePolygonTrace(doc) {
               const evalIndex = Number(target.dataset.evalIndex);
               const field = target.dataset.resetField;
               updateEvalResetField(evalIndex, field, target.value);
-            } else if (target.classList.contains("eval-userfield-input")) {
-              const evalIndex = Number(target.dataset.evalIndex);
-              const caseIndex = Number(target.dataset.caseIndex);
-              updateEvalUserFieldId(evalIndex, caseIndex, target.value);
             } else if (target.classList.contains("eval-fieldmode-input")) {
               const evalIndex = Number(target.dataset.evalIndex);
               updateEvalFieldMode(evalIndex, target.value);
+            }
+          });
+
+          casetableEvalsContainer.addEventListener("change", (event) => {
+            const target = event.target;
+            if (target.classList.contains("eval-userfield-input")) {
+              const evalIndex = Number(target.dataset.evalIndex);
+              const caseIndex = Number(target.dataset.caseIndex);
+              updateEvalUserFieldId(evalIndex, caseIndex, target.value);
             }
           });
 
@@ -6953,11 +6996,11 @@ function parsePolygonTrace(doc) {
               setStatus(`Eval limit of ${casetableEvalsLimit} reached.`, "warning");
               return;
             }
-            const usage = collectEvalUserFieldUsage();
+            const defaults = resolveEvalUserFieldOptions();
             const newEval = createDefaultEval(
               casetableEvals.evals.length,
               casetableCases.length,
-              usage
+              defaults
             );
             casetableEvals.evals.push(newEval);
             renderCasetableEvals();
@@ -6973,57 +7016,24 @@ function parsePolygonTrace(doc) {
           return evalEntry?.name || buildEvalName(evalIndex);
         }
 
-        function collectEvalUserFieldOccurrences() {
-          const occurrences = new Map();
-          casetableEvals?.evals?.forEach((evalEntry, evalIndex) => {
-            (evalEntry.cases || []).forEach((caseEntry, caseIndex) => {
-              const value = String(caseEntry?.scanPlane?.userFieldId ?? "").trim();
-              if (!value) {
-                return;
-              }
-              if (!occurrences.has(value)) {
-                occurrences.set(value, []);
-              }
-              occurrences.get(value).push({ evalIndex, caseIndex });
-            });
-          });
-          return occurrences;
-        }
-
-        function collectEvalUserFieldUsage() {
-          const usage = new Set();
-          casetableEvals?.evals?.forEach((evalEntry) => {
-            (evalEntry.cases || []).forEach((caseEntry) => {
-              const value = String(caseEntry?.scanPlane?.userFieldId ?? "").trim();
-              if (value) {
-                usage.add(value);
-              }
-            });
-          });
-          return usage;
-        }
-
         function applyEvalUserFieldValidation() {
           if (!casetableEvalsContainer) {
             return;
           }
-          const occurrences = collectEvalUserFieldOccurrences();
-          const duplicateKeys = Array.from(occurrences.entries())
-            .filter(([, entries]) => entries.length > 1)
-            .map(([value]) => value);
+          const { values } = resolveEvalUserFieldOptions();
           const inputs = casetableEvalsContainer.querySelectorAll(".eval-userfield-input");
+          const invalidValues = new Set();
           inputs.forEach((input) => {
-            const evalIndex = Number(input.dataset.evalIndex);
-            const caseIndex = Number(input.dataset.caseIndex);
             const value = (input.value || "").trim();
-            const matches = occurrences.get(value);
-            const hasError =
-              value && matches && matches.some((entry) => entry.evalIndex === evalIndex && entry.caseIndex === caseIndex) && matches.length > 1;
-            input.classList.toggle("input-error", Boolean(hasError));
+            const isInvalid = Boolean(value) && !values.has(value);
+            input.classList.toggle("input-error", isInvalid);
+            if (isInvalid) {
+              invalidValues.add(value);
+            }
           });
           if (casetableEvalsWarning) {
-            casetableEvalsWarning.textContent = duplicateKeys.length
-              ? `Duplicate UserFieldId values: ${duplicateKeys.join(", ")}`
+            casetableEvalsWarning.textContent = invalidValues.size
+              ? `Unknown UserFieldId indices: ${Array.from(invalidValues).join(", ")}`
               : "";
           }
         }
@@ -7049,13 +7059,13 @@ function parsePolygonTrace(doc) {
             return;
           }
           const caseCount = casetableCases.length;
-          const usage = collectEvalUserFieldUsage();
+          const defaults = resolveEvalUserFieldOptions();
           casetableEvals.evals.forEach((evalEntry) => {
             if (!Array.isArray(evalEntry.cases)) {
               evalEntry.cases = [];
             }
             while (evalEntry.cases.length < caseCount) {
-              const newCase = createDefaultEvalCase(evalEntry.cases.length, usage);
+              const newCase = createDefaultEvalCase(evalEntry.cases.length, defaults);
               evalEntry.cases.push(newCase);
             }
             if (evalEntry.cases.length > caseCount) {
@@ -7076,6 +7086,7 @@ function parsePolygonTrace(doc) {
             String(caseEntry?.scanPlane?.isSplitted ?? "false").toLowerCase() === "true"
               ? "true"
               : "false";
+          const userFieldOptions = buildEvalUserFieldOptionsHtml(userFieldId);
           const toggleOptions = [
             { value: "true", label: "Split" },
             { value: "false", label: "Full" },
@@ -7101,16 +7112,14 @@ function parsePolygonTrace(doc) {
               </div>
               <div class="casetable-eval-case-fields">
                 <div class="casetable-eval-field">
-                  <label>UserFieldId</label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
+                  <label>UserFieldId (TriOrb index)</label>
+                  <select
                     class="casetable-eval-input eval-userfield-input"
                     data-eval-index="${evalIndex}"
                     data-case-index="${caseIndex}"
-                    value="${escapeHtml(userFieldId)}"
-                  />
+                  >
+                    ${userFieldOptions.html}
+                  </select>
                 </div>
                 <div class="casetable-eval-toggle">
                   <span>IsSplitted</span>
