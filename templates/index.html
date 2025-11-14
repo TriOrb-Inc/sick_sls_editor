@@ -1925,6 +1925,11 @@
         );
         let casetableCases = initializeCasetableCases(casetablePayload?.cases);
         let casetableLayout = normalizeCasetableLayout(casetablePayload?.layout);
+        const evalUserFieldFallbackLabels = [
+          "Preset Field 1",
+          "Preset Field 2",
+          "Preset Field 3",
+        ];
         let casetableEvals = normalizeCasetableEvals(
           casetablePayload?.evals,
           casetableCases.length
@@ -4772,12 +4777,6 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         function buildEvalName(index) {
           return `Eval ${index + 1}`;
         }
-
-        const evalUserFieldFallbackLabels = [
-          "Preset Field 1",
-          "Preset Field 2",
-          "Preset Field 3",
-        ];
 
         function resolveEvalUserFieldOptions() {
           const options = triorbShapes.map((shape, index) => {
