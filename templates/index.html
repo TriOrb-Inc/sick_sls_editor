@@ -5879,6 +5879,13 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           if (!hasChildren && !hasText) {
             return [`${indent}<${sanitizeTagName(node.tag)}${attrText ? ` ${attrText}` : ""} />`];
           }
+          if (hasText && !hasChildren) {
+            return [
+              `${indent}<${sanitizeTagName(node.tag)}${attrText ? ` ${attrText}` : ""}>${escapeXml(
+                node.text
+              )}</${sanitizeTagName(node.tag)}>`
+            ];
+          }
           const lines = [
             `${indent}<${sanitizeTagName(node.tag)}${attrText ? ` ${attrText}` : ""}>`,
           ];
