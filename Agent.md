@@ -31,11 +31,9 @@
 - 数値であることが分かっているInputboxは数値入力のみを受け付けること（原則stepは1）
 - true/falseであることが分かっているInputboxはチェックボックスとすること
 - enumであることが分かっているInputboxはセレクタとすること（選択肢が4個以下の場合は横並びのトグルボタン）
-
-
+- Save (SICK) で出力されるXML構造はsample\20251111-105839_ScannerDTM-Export.sgexmlと一致すること
 
 ## Export_CasetablesAndCases編集機能要件
-- Save (SICK) で出力されるXML構造はsample\20251111-105839_ScannerDTM-Export.sgexmlと一致すること
 - このアプリではCasetableはIndex="0"のみを取り扱う
 - Configurationツリーはsample\20251111-105839_ScannerDTM-Export.sgexmlの定義を参考に、Structure Menu/Export_CasetablesAndCases以下にConfigurationツリーを作って各種Inputboxを作成
 - Casesツリーは、監視ケースを最大128個Add出来る
