@@ -3,8 +3,8 @@
   <FileInfo>
     <ContentId>Scanner Complete Export</ContentId>
     <ContentVersion>1.6</ContentVersion>
-    <Company>SICK AG</Company>
-    <CreationToolName>SAFETY DESIGNER ENGINEERING TOOL</CreationToolName>
+    <Company>TriOrb</Company>
+    <CreationToolName>TriOrb - SICK SLS Editor</CreationToolName>
     <CreationToolVersion>2025.02</CreationToolVersion>
     <CreationComponentName>nanoScan3</CreationComponentName>
     <CreationComponentVersion>1.19.23369.0</CreationComponentVersion>
