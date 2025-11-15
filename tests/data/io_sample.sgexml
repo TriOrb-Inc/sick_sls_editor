@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SdImportExport Version="1.2" Timestamp="2025-01-01T00:00:00Z">
+  <FileInfo>
+    <ContentId>Example Export</ContentId>
+    <Company>Example Corp</Company>
+    <CreationToolVersion>1.0</CreationToolVersion>
+  </FileInfo>
+  <TriOrb_SICK_SLS_Editor Source="TriOrb">
+    <Shapes>
+      <Shape ID="shape-001" Name="Protective #1" Type="Polygon" Fieldtype="ProtectiveSafeBlanking" Kind="Field">
+        <Polygon Type="Field">
+          <Point X="0" Y="0" />
+          <Point X="200" Y="0" />
+          <Point X="200" Y="100" />
+        </Polygon>
+      </Shape>
+    </Shapes>
+  </TriOrb_SICK_SLS_Editor>
+  <Export_ScanPlanes>
+    <ScanPlane Index="0" Name="PlaneA" MultipleSampling="2">
+      <Devices>
+        <Device Index="0" DeviceName="DeviceA" Typekey="NANS3" />
+      </Devices>
+    </ScanPlane>
+  </Export_ScanPlanes>
+  <Export_FieldsetsAndFields>
+    <ScanPlane Index="0" Name="PlaneA">
+      <Devices>
+        <Device Index="0" DeviceName="DeviceA" />
+      </Devices>
+      <GlobalGeometry Radius="4" />
+      <Fieldsets>
+        <Fieldset Index="0" Name="SetA">
+          <Field Index="0" Name="Field A" Fieldtype="ProtectiveSafeBlanking">
+            <Shapes>
+              <Shape ID="shape-001" />
+            </Shapes>
+          </Field>
+          <Field Index="1" Name="Field B" Fieldtype="WarningSafeBlanking">
+            <Polygon ID="shape-inline" Type="CutOut">
+              <Point X="0" Y="0" />
+              <Point X="1" Y="0" />
+              <Point X="1" Y="1" />
+            </Polygon>
+          </Field>
+        </Fieldset>
+      </Fieldsets>
+    </ScanPlane>
+  </Export_FieldsetsAndFields>
+  <Export_CasetablesAndCases>
+    <Casetable Index="0" Name="Default">
+      <Configuration>
+        <ConfigItem Key="Foo" Value="Bar" />
+      </Configuration>
+      <Cases>
+        <Case Index="0" Name="Case0">
+          <StaticInputs>
+            <StaticInput>
+              <State>High</State>
+            </StaticInput>
+          </StaticInputs>
+          <SpeedActivation Mode="Off" />
+          <Extra Flag="1" />
+        </Case>
+      </Cases>
+      <Evals>
+        <Eval Index="1" Priority="Normal">
+          <Name>Eval One</Name>
+          <NameLatin9Key>_EVAL_1</NameLatin9Key>
+          <Q>1</Q>
+          <Reset>
+            <ResetType>NoReset</ResetType>
+            <AutoResetTime>0</AutoResetTime>
+            <EvalResetSource>None</EvalResetSource>
+          </Reset>
+          <Cases>
+            <Case Index="0">
+              <ScanPlanes>
+                <ScanPlane Axis="X">
+                  <UserFieldId>1</UserFieldId>
+                  <IsSplitted>false</IsSplitted>
+                </ScanPlane>
+              </ScanPlanes>
+            </Case>
+          </Cases>
+          <PermanentPreset>
+            <ScanPlanes>
+              <ScanPlane Orientation="Horizontal">
+                <FieldMode>59</FieldMode>
+              </ScanPlane>
+            </ScanPlanes>
+          </PermanentPreset>
+        </Eval>
+      </Evals>
+      <FieldsConfiguration Enabled="true">
+        <ScanPlanes>
+          <ScanPlane Id="1" Name="Monitoring plane">
+            <UserFieldsets>
+              <UserFieldset>
+                <Index>0</Index>
+                <Name>SetA</Name>
+                <NameLatin9Key>_SET_A</NameLatin9Key>
+                <UserFields>
+                  <UserField>
+                    <Id>1</Id>
+                    <Index>0</Index>
+                    <Name>Field A</Name>
+                    <FieldType>ProtectiveSafeBlanking</FieldType>
+                    <MultipleSampling>2</MultipleSampling>
+                    <ObjectResolution>70</ObjectResolution>
+                    <ContourNegative>0</ContourNegative>
+                    <ContourPositive>0</ContourPositive>
+                  </UserField>
+                </UserFields>
+              </UserFieldset>
+            </UserFieldsets>
+          </ScanPlane>
+        </ScanPlanes>
+        <StatFields>
+          <PermRed>59</PermRed>
+          <PermGreen>60</PermGreen>
+          <PermGreenWf>61</PermGreenWf>
+        </StatFields>
+      </FieldsConfiguration>
+    </Casetable>
+  </Export_CasetablesAndCases>
+</SdImportExport>
