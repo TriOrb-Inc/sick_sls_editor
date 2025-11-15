@@ -1,0 +1,419 @@
+{
+  "menu_items": [
+    {
+      "tag": "FileInfo",
+      "summary": "No additional attributes"
+    },
+    {
+      "tag": "TriOrb_SICK_SLS_Editor",
+      "summary": "Source=TriOrb"
+    },
+    {
+      "tag": "Export_ScanPlanes",
+      "summary": "No additional attributes"
+    },
+    {
+      "tag": "Export_FieldsetsAndFields",
+      "summary": "No additional attributes"
+    },
+    {
+      "tag": "Export_CasetablesAndCases",
+      "summary": "No additional attributes"
+    }
+  ],
+  "fileinfo_fields": [
+    {
+      "tag": "ContentId",
+      "value": "Example Export"
+    },
+    {
+      "tag": "Company",
+      "value": "Example Corp"
+    },
+    {
+      "tag": "CreationToolVersion",
+      "value": "1.0"
+    }
+  ],
+  "root_attributes": {
+    "Version": "1.2",
+    "Timestamp": "2025-01-01T00:00:00Z"
+  },
+  "scan_planes": [
+    {
+      "attributes": {
+        "Index": "0",
+        "Name": "PlaneA",
+        "MultipleSampling": "2"
+      },
+      "devices": [
+        {
+          "attributes": {
+            "Index": "0",
+            "DeviceName": "DeviceA",
+            "Typekey": "NANS3"
+          }
+        }
+      ]
+    }
+  ],
+  "casetable_payload": {
+    "casetable_attributes": {
+      "Index": "0",
+      "Name": "Default"
+    },
+    "configuration": {
+      "tag": "Configuration",
+      "attributes": {},
+      "text": "",
+      "children": [
+        {
+          "tag": "ConfigItem",
+          "attributes": {
+            "Key": "Foo",
+            "Value": "Bar"
+          },
+          "text": "",
+          "children": []
+        }
+      ]
+    },
+    "cases": [
+      {
+        "attributes": {
+          "Index": "0",
+          "Name": "Case0"
+        },
+        "static_inputs": [
+          {
+            "attributes": {
+              "State": "High"
+            },
+            "value_key": "State"
+          }
+        ],
+        "speed_activation": {
+          "attributes": {
+            "Mode": "Off"
+          },
+          "mode_key": "Mode"
+        },
+        "layout": [
+          {
+            "kind": "static-inputs"
+          },
+          {
+            "kind": "speed-activation"
+          },
+          {
+            "kind": "node",
+            "node": {
+              "tag": "Extra",
+              "attributes": {
+                "Flag": "1"
+              },
+              "text": "",
+              "children": []
+            }
+          }
+        ]
+      }
+    ],
+    "evals": {
+      "attributes": {},
+      "evals": [
+        {
+          "attributes": {
+            "Index": "1",
+            "Priority": "Normal"
+          },
+          "name": "Eval One",
+          "nameLatin9Key": "_EVAL_1",
+          "q": "1",
+          "reset": {
+            "resetType": "NoReset",
+            "autoResetTime": "0",
+            "evalResetSource": "None"
+          },
+          "cases": [
+            {
+              "attributes": {
+                "Index": "0"
+              },
+              "scanPlane": {
+                "attributes": {
+                  "Axis": "X"
+                },
+                "userFieldId": "1",
+                "isSplitted": "false"
+              }
+            }
+          ],
+          "permanentPreset": {
+            "scanPlaneAttributes": {
+              "Orientation": "Horizontal"
+            },
+            "fieldMode": "59"
+          }
+        }
+      ]
+    },
+    "fields_configuration": {
+      "tag": "FieldsConfiguration",
+      "attributes": {
+        "Enabled": "true"
+      },
+      "text": "",
+      "children": [
+        {
+          "tag": "ScanPlanes",
+          "attributes": {},
+          "text": "",
+          "children": [
+            {
+              "tag": "ScanPlane",
+              "attributes": {
+                "Id": "1",
+                "Name": "Monitoring plane"
+              },
+              "text": "",
+              "children": [
+                {
+                  "tag": "UserFieldsets",
+                  "attributes": {},
+                  "text": "",
+                  "children": [
+                    {
+                      "tag": "UserFieldset",
+                      "attributes": {},
+                      "text": "",
+                      "children": [
+                        {
+                          "tag": "Index",
+                          "attributes": {},
+                          "text": "0",
+                          "children": []
+                        },
+                        {
+                          "tag": "Name",
+                          "attributes": {},
+                          "text": "SetA",
+                          "children": []
+                        },
+                        {
+                          "tag": "NameLatin9Key",
+                          "attributes": {},
+                          "text": "_SET_A",
+                          "children": []
+                        },
+                        {
+                          "tag": "UserFields",
+                          "attributes": {},
+                          "text": "",
+                          "children": [
+                            {
+                              "tag": "UserField",
+                              "attributes": {},
+                              "text": "",
+                              "children": [
+                                {
+                                  "tag": "Id",
+                                  "attributes": {},
+                                  "text": "1",
+                                  "children": []
+                                },
+                                {
+                                  "tag": "Index",
+                                  "attributes": {},
+                                  "text": "0",
+                                  "children": []
+                                },
+                                {
+                                  "tag": "Name",
+                                  "attributes": {},
+                                  "text": "Field A",
+                                  "children": []
+                                },
+                                {
+                                  "tag": "FieldType",
+                                  "attributes": {},
+                                  "text": "ProtectiveSafeBlanking",
+                                  "children": []
+                                },
+                                {
+                                  "tag": "MultipleSampling",
+                                  "attributes": {},
+                                  "text": "2",
+                                  "children": []
+                                },
+                                {
+                                  "tag": "ObjectResolution",
+                                  "attributes": {},
+                                  "text": "70",
+                                  "children": []
+                                },
+                                {
+                                  "tag": "ContourNegative",
+                                  "attributes": {},
+                                  "text": "0",
+                                  "children": []
+                                },
+                                {
+                                  "tag": "ContourPositive",
+                                  "attributes": {},
+                                  "text": "0",
+                                  "children": []
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "tag": "StatFields",
+          "attributes": {},
+          "text": "",
+          "children": [
+            {
+              "tag": "PermRed",
+              "attributes": {},
+              "text": "59",
+              "children": []
+            },
+            {
+              "tag": "PermGreen",
+              "attributes": {},
+              "text": "60",
+              "children": []
+            },
+            {
+              "tag": "PermGreenWf",
+              "attributes": {},
+              "text": "61",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    "layout": [
+      {
+        "kind": "configuration"
+      },
+      {
+        "kind": "cases"
+      },
+      {
+        "kind": "evals"
+      },
+      {
+        "kind": "fields_configuration"
+      }
+    ]
+  },
+  "fieldsets_payload": {
+    "devices": [
+      {
+        "attributes": {
+          "Index": "0",
+          "DeviceName": "DeviceA"
+        }
+      }
+    ],
+    "global_geometry": {
+      "Radius": "4"
+    },
+    "fieldsets": [
+      {
+        "attributes": {
+          "Index": "0",
+          "Name": "SetA"
+        },
+        "fields": [
+          {
+            "attributes": {
+              "Index": "0",
+              "Name": "Field A",
+              "Fieldtype": "ProtectiveSafeBlanking"
+            },
+            "shapeRefs": [
+              {
+                "shapeId": "shape-001"
+              }
+            ]
+          },
+          {
+            "attributes": {
+              "Index": "1",
+              "Name": "Field B",
+              "Fieldtype": "WarningSafeBlanking"
+            },
+            "shapeRefs": [
+              {
+                "shapeId": "shape-inline"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "triorb_shapes": [
+    {
+      "id": "shape-001",
+      "name": "Protective #1",
+      "type": "Polygon",
+      "fieldtype": "ProtectiveSafeBlanking",
+      "kind": "Field",
+      "polygon": {
+        "Type": "Field",
+        "points": [
+          {
+            "X": "0",
+            "Y": "0"
+          },
+          {
+            "X": "200",
+            "Y": "0"
+          },
+          {
+            "X": "200",
+            "Y": "100"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shape-inline",
+      "name": "SetA Field B Polygon",
+      "type": "Polygon",
+      "fieldtype": "WarningSafeBlanking",
+      "kind": "CutOut",
+      "polygon": {
+        "Type": "CutOut",
+        "points": [
+          {
+            "X": "0",
+            "Y": "0"
+          },
+          {
+            "X": "1",
+            "Y": "0"
+          },
+          {
+            "X": "1",
+            "Y": "1"
+          }
+        ]
+      }
+    }
+  ],
+  "triorb_source": "TriOrb"
+}
