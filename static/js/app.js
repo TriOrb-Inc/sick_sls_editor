@@ -3042,7 +3042,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             NameLatin9Key: `_CASE_${String(index + 1).padStart(3, "0")}`,
             DisplayOrder: String(index),
           };
-          const staticInputs = [createDefaultStaticInput(`StaticInput ${index + 1}`)];
+          const staticInputs = normalizeStaticInputs();
           const speedActivation = normalizeSpeedActivation({
             attributes: { Mode: "Off" },
             mode_key: "Mode",
@@ -3238,7 +3238,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
 
         function createDefaultStaticInput(name) {
           return {
-            attributes: { Name: name || "StaticInput", Match: "Low" },
+            attributes: { Name: name || "StaticInput", Match: "DontCare" },
             valueKey: "Match",
           };
         }
@@ -3264,20 +3264,26 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         }
 
         function normalizeStaticInputs(list) {
-          if (!Array.isArray(list) || !list.length) {
-            return [createDefaultStaticInput("StaticInput")];
-          }
-          return list.map((item, index) => {
-            const attributes = { ...(item?.attributes || {}) };
+          const desiredCount = 8;
+          const sourceList = Array.isArray(list) ? list : [];
+          const normalized = [];
+          for (let index = 0; index < Math.min(sourceList.length, desiredCount); index += 1) {
+            const item = sourceList[index] || {};
+            const attributes = { ...(item.attributes || {}) };
+            const displayIndex = normalized.length + 1;
             if (!attributes.Name) {
-              attributes.Name = `StaticInput ${index + 1}`;
+              attributes.Name = `StaticInput ${displayIndex}`;
             }
-            const valueKey = item?.value_key || resolveStaticInputValueKey(attributes);
+            const valueKey = item.value_key || resolveStaticInputValueKey(attributes);
             if (!(valueKey in attributes)) {
-              attributes[valueKey] = "Low";
+              attributes[valueKey] = "DontCare";
             }
-            return { attributes, valueKey };
-          });
+            normalized.push({ attributes, valueKey });
+          }
+          while (normalized.length < desiredCount) {
+            normalized.push(createDefaultStaticInput(`StaticInput ${normalized.length + 1}`));
+          }
+          return normalized;
         }
 
         function normalizeSpeedActivation(entry) {
@@ -3445,9 +3451,19 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (!staticEntry) {
             return;
           }
+          const normalizedValue = typeof value === "string" ? value : String(value ?? "");
+          const lowerValue = normalizedValue.toLowerCase();
+          const allowedValues = {
+            dontcare: "DontCare",
+            low: "Low",
+            high: "High",
+          };
+          if (!(lowerValue in allowedValues)) {
+            return;
+          }
           const key = staticEntry.valueKey || resolveStaticInputValueKey(staticEntry.attributes || {});
           staticEntry.valueKey = key;
-          staticEntry.attributes[key] = value;
+          staticEntry.attributes[key] = allowedValues[lowerValue];
         }
 
         function updateSpeedActivationValue(caseIndex, value) {
@@ -6395,8 +6411,8 @@ function parsePolygonTrace(doc) {
           const attributes = input?.attributes || {};
           const label = attributes.Name || `StaticInput ${staticIndex + 1}`;
           const key = input?.valueKey || resolveStaticInputValueKey(attributes);
-          const currentValue = String(attributes[key] || "Low").toLowerCase();
-          const options = ["Low", "High"];
+          const currentValue = String(attributes[key] ?? "DontCare").toLowerCase();
+          const options = ["DontCare", "Low", "High"];
           const buttons = options
             .map((option) => {
               const isActive = currentValue === option.toLowerCase();
