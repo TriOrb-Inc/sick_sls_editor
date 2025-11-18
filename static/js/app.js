@@ -325,6 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const replicateOffsetXInput = document.getElementById("replicate-offset-x");
         const replicateOffsetYInput = document.getElementById("replicate-offset-y");
         const replicateRotationInput = document.getElementById("replicate-rotation");
+        const replicateIncludeCutoutsInput = document.getElementById("replicate-include-cutouts");
         const replicateCasePrefixInput = document.getElementById("replicate-case-prefix");
         const fieldTypeLabels = ["ProtectiveSafeBlanking", "WarningSafeBlanking"];
         const createRectOriginXInput = document.getElementById("create-rect-originx");
@@ -429,6 +430,7 @@ document.addEventListener("DOMContentLoaded", () => {
           offsetY: 0,
           rotation: 0,
           casePrefix: "",
+          includeCutouts: false,
         };
 
         renderScanPlanes();
@@ -1652,7 +1654,75 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return clonedShape.id;
         }
 
-        function buildReplicatedField(baseField, { copyIndex, transform }) {
+        function isCutOutShape(shape) {
+          if (!shape) {
+            return false;
+          }
+          const kind =
+            shape.kind ||
+            shape.rectangle?.Type ||
+            shape.circle?.Type ||
+            getPolygonTypeValue(shape.polygon) ||
+            shape.polygon?.Type;
+          return String(kind || "").toLowerCase() === "cutout";
+        }
+
+        function findPrimaryShapeIdForFieldset(fieldset) {
+          if (!fieldset) {
+            return null;
+          }
+          let fallback = null;
+          const fields = Array.isArray(fieldset.fields) ? fieldset.fields : [];
+          for (const field of fields) {
+            const refs = Array.isArray(field.shapeRefs) ? field.shapeRefs : [];
+            for (const ref of refs) {
+              const shape = findTriOrbShapeById(ref?.shapeId);
+              if (!shape) {
+                continue;
+              }
+              if (!isCutOutShape(shape)) {
+                return shape.id;
+              }
+              if (!fallback) {
+                fallback = shape.id;
+              }
+            }
+          }
+          return fallback;
+        }
+
+        function getUserFieldIdForShapeId(shapeId) {
+          if (!shapeId) {
+            return "";
+          }
+          const index = triorbShapes.findIndex((shape) => shape.id === shapeId);
+          if (index < 0) {
+            return "";
+          }
+          return String(index + 1);
+        }
+
+        function assignCasesToFieldsets(assignments = []) {
+          if (!assignments.length) {
+            return;
+          }
+          if (!casetableEvals?.evals?.length) {
+            return;
+          }
+          assignments.forEach(({ caseIndex, userFieldId }) => {
+            if (!Number.isFinite(caseIndex) || !userFieldId) {
+              return;
+            }
+            casetableEvals.evals.forEach((evalEntry) => {
+              const evalCase = evalEntry?.cases?.[caseIndex];
+              if (evalCase?.scanPlane) {
+                evalCase.scanPlane.userFieldId = userFieldId;
+              }
+            });
+          });
+        }
+
+        function buildReplicatedField(baseField, { copyIndex, transform, includeCutouts }) {
           if (!baseField) {
             return null;
           }
@@ -1663,7 +1733,17 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             attributes.NameLatin9Key = generateLatin9Key();
           }
           const shapeRefs = Array.isArray(baseField.shapeRefs) ? baseField.shapeRefs : [];
-          const newRefs = shapeRefs
+          const filteredRefs = shapeRefs.filter((ref) => {
+            if (!ref?.shapeId) {
+              return false;
+            }
+            if (includeCutouts) {
+              return true;
+            }
+            const shape = findTriOrbShapeById(ref.shapeId);
+            return !isCutOutShape(shape);
+          });
+          const newRefs = filteredRefs
             .map((ref) => duplicateShapeForReplication(ref?.shapeId, transform, { copyIndex }))
             .filter(Boolean)
             .map((shapeId) => ({ shapeId }));
@@ -1673,7 +1753,12 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           };
         }
 
-        function buildReplicatedFieldset(baseFieldset, { copyIndex, transform, name }) {
+        function buildReplicatedFieldset(baseFieldset, {
+          copyIndex,
+          transform,
+          name,
+          includeCutouts,
+        }) {
           if (!baseFieldset) {
             return null;
           }
@@ -1690,6 +1775,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               buildReplicatedField(field, {
                 copyIndex,
                 transform,
+                includeCutouts,
               })
             )
             .filter(Boolean);
@@ -2306,6 +2392,11 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (replicateRotationInput) {
             replicateRotationInput.value = replicateFormState.rotation ?? 0;
           }
+          if (replicateIncludeCutoutsInput) {
+            replicateIncludeCutoutsInput.checked = Boolean(
+              replicateFormState.includeCutouts
+            );
+          }
           if (replicateCasePrefixInput) {
             replicateCasePrefixInput.value = fallbackPrefix;
           }
@@ -2349,6 +2440,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const offsetX = parseNumeric(replicateOffsetXInput?.value, 0) || 0;
           const offsetY = parseNumeric(replicateOffsetYInput?.value, 0) || 0;
           const rotation = parseNumeric(replicateRotationInput?.value, 0) || 0;
+          const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
           const prefixInput = replicateCasePrefixInput?.value?.trim();
           const casePrefix =
             prefixInput || getReplicateFieldsetName(fieldsetIndex) || "Fieldset";
@@ -2358,6 +2450,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateFormState.offsetY = offsetY;
           replicateFormState.rotation = rotation;
           replicateFormState.casePrefix = casePrefix;
+          replicateFormState.includeCutouts = includeCutouts;
           const createdFieldsets = [];
           const baseFieldsetCount = fieldsets.length;
           for (let step = 1; step <= copyCount; step += 1) {
@@ -2372,6 +2465,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               copyIndex: step,
               transform,
               name: fieldsetName,
+              includeCutouts,
             });
             if (replicatedFieldset) {
               fieldsets.push(replicatedFieldset);
@@ -2385,14 +2479,25 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const availableSlots = casetableCasesLimit - casetableCases.length;
           const casesToCreate = Math.min(availableSlots, createdFieldsets.length);
           const createdCaseNames = [];
+          const caseAssignments = [];
+          const baseCaseIndex = casetableCases.length;
           for (let idx = 0; idx < casesToCreate; idx += 1) {
-            const newCase = createDefaultCasetableCase(casetableCases.length);
-            const caseName = `${casePrefix} ${casetableCases.length + 1}`;
+            const caseIndex = baseCaseIndex + idx;
+            const newCase = createDefaultCasetableCase(caseIndex);
+            const caseName = `${casePrefix} ${caseIndex + 1}`;
             newCase.attributes.Name = caseName;
             casetableCases.push(newCase);
             caseToggleStates.push(false);
             createdCaseNames.push(caseName);
+            const targetFieldset = createdFieldsets[idx];
+            const primaryShapeId = findPrimaryShapeIdForFieldset(targetFieldset);
+            const userFieldId = getUserFieldIdForShapeId(primaryShapeId);
+            if (userFieldId) {
+              caseAssignments.push({ caseIndex, userFieldId });
+            }
           }
+          syncEvalCaseAssignments();
+          assignCasesToFieldsets(caseAssignments);
           renderFieldsets();
           renderTriOrbShapes();
           renderTriOrbShapeCheckboxes();

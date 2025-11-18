@@ -1677,13 +1677,17 @@
               Rotation (° / copy)
               <input type="number" id="replicate-rotation" step="1" value="0" />
             </label>
+            <label class="replicate-option">
+              <input type="checkbox" id="replicate-include-cutouts" />
+              Type = CutOut の Shape も複製する
+            </label>
             <label>
               Fieldset / Case prefix
               <input type="text" id="replicate-case-prefix" placeholder="Fieldset" />
             </label>
           </div>
           <p class="replicate-note">
-            選択した Fieldset 配下の Field をまとめて繰り返しコピーし、コピーごとに新しい Fieldset と Case を追加します。オフセット値はコピーごとの増分です。
+            選択した Fieldset 配下の Field をまとめて繰り返しコピーし、コピーごとに新しい Fieldset と Case を追加します。オフセット値はコピーごとの増分です。CutOut はデフォルトで除外されます。
           </p>
         </div>
         <div class="modal-footer">
