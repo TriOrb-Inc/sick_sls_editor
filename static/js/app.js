@@ -327,6 +327,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const replicateRotationInput = document.getElementById("replicate-rotation");
         const replicateScalePercentInput = document.getElementById("replicate-scale-percent");
         const replicateIncludeCutoutsInput = document.getElementById("replicate-include-cutouts");
+        const replicateStaticInputsAutoInput = document.getElementById("replicate-static-inputs-auto");
+        const replicateSpeedMinStepInput = document.getElementById("replicate-speed-min-step");
+        const replicateSpeedMaxStepInput = document.getElementById("replicate-speed-max-step");
         const replicateCasePrefixInput = document.getElementById("replicate-case-prefix");
         const replicateTargetToggle = document.getElementById("replicate-target-toggle");
         const replicateCaseSelect = document.getElementById("replicate-case-select");
@@ -437,6 +440,9 @@ document.addEventListener("DOMContentLoaded", () => {
           scalePercent: 0,
           casePrefix: "",
           includeCutouts: false,
+          autoStaticInputs: false,
+          speedRangeMinStep: 0,
+          speedRangeMaxStep: 0,
         };
         let replicatePreviewState = null;
 
@@ -1862,7 +1868,10 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           };
         }
 
-        function buildReplicatedCase(baseCase, { caseIndex, prefix }) {
+        function buildReplicatedCase(
+          baseCase,
+          { caseIndex, prefix, staticInputs: staticInputsOverride, speedRange }
+        ) {
           if (!baseCase) {
             return null;
           }
@@ -1876,19 +1885,30 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           } else {
             attributes.NameLatin9Key = `_CASE_${String(displayIndex).padStart(3, "0")}`;
           }
-          const staticInputs = Array.isArray(baseCase.staticInputs)
-            ? baseCase.staticInputs.map((entry) => {
-                const valueKey = entry?.valueKey || resolveStaticInputValueKey(entry?.attributes || {});
-                return {
-                  attributes: { ...(entry?.attributes || {}) },
-                  valueKey,
-                };
-              })
-            : [];
+          const staticInputSource = Array.isArray(staticInputsOverride)
+            ? staticInputsOverride
+            : Array.isArray(baseCase.staticInputs)
+              ? baseCase.staticInputs
+              : [];
+          const staticInputs = staticInputSource.map((entry) => {
+            const valueKey = entry?.valueKey || resolveStaticInputValueKey(entry?.attributes || {});
+            return {
+              attributes: { ...(entry?.attributes || {}) },
+              valueKey,
+            };
+          });
           const speedActivation = {
             attributes: { ...(baseCase.speedActivation?.attributes || {}) },
             modeKey: baseCase.speedActivation?.modeKey || "Mode",
           };
+          const activationMinSpeed =
+            typeof speedRange?.activationMinSpeed !== "undefined"
+              ? normalizeSpeedRangeValue(speedRange.activationMinSpeed)
+              : baseCase.activationMinSpeed ?? "0";
+          const activationMaxSpeed =
+            typeof speedRange?.activationMaxSpeed !== "undefined"
+              ? normalizeSpeedRangeValue(speedRange.activationMaxSpeed)
+              : baseCase.activationMaxSpeed ?? "0";
           const layout = Array.isArray(baseCase.layout)
             ? baseCase.layout
                 .map((segment) => {
@@ -1908,9 +1928,99 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             staticInputsPlacement: baseCase.staticInputsPlacement || "case",
             speedActivation,
             speedActivationPlacement: baseCase.speedActivationPlacement || "case",
-            activationMinSpeed: baseCase.activationMinSpeed ?? "0",
-            activationMaxSpeed: baseCase.activationMaxSpeed ?? "0",
+            activationMinSpeed,
+            activationMaxSpeed,
             layout,
+          };
+        }
+
+        function normalizeStaticInputStateValue(value) {
+          const normalized = String(value ?? "").toLowerCase();
+          if (normalized === "high") {
+            return "high";
+          }
+          if (normalized === "low") {
+            return "low";
+          }
+          return "dontcare";
+        }
+
+        function createStaticInputsAutoIncrementer(baseCase) {
+          const desiredCount = casetableConfigurationStaticInputsCount;
+          const sourceList = Array.isArray(baseCase?.staticInputs) ? baseCase.staticInputs : [];
+          const preparedList = [];
+          for (let index = 0; index < desiredCount; index += 1) {
+            const sourceEntry = sourceList[index] || createDefaultStaticInput(`StaticInput ${index + 1}`);
+            const template = { ...(sourceEntry?.attributes || {}) };
+            if (!template.Name) {
+              template.Name = `StaticInput ${index + 1}`;
+            }
+            const valueKey = sourceEntry?.valueKey || resolveStaticInputValueKey(template);
+            if (!(valueKey in template)) {
+              template[valueKey] = "DontCare";
+            }
+            preparedList.push({ template, valueKey });
+          }
+          const dontCareFlags = preparedList.map((entry) =>
+            normalizeStaticInputStateValue(entry.template?.[entry.valueKey]) === "dontcare"
+          );
+          const activationFlags = new Array(preparedList.length).fill(false);
+          const modulus = Math.max(1, 2 ** preparedList.length);
+          const baseValue = preparedList.reduce((sum, entry, index) => {
+            const shift = preparedList.length - 1 - index;
+            const state = normalizeStaticInputStateValue(entry.template?.[entry.valueKey]);
+            if (state === "high") {
+              return sum + 2 ** shift;
+            }
+            return sum;
+          }, 0);
+          let step = 0;
+          return {
+            next() {
+              step += 1;
+              const value = (baseValue + step) % modulus;
+              return preparedList.map((entry, index) => {
+                const shift = preparedList.length - 1 - index;
+                const bit = preparedList.length ? (value >> shift) & 1 : 0;
+                const shouldKeepDontCare =
+                  dontCareFlags[index] && !activationFlags[index] && bit === 0;
+                const attributes = { ...(entry.template || {}) };
+                if (shouldKeepDontCare) {
+                  attributes[entry.valueKey] = "DontCare";
+                } else {
+                  attributes[entry.valueKey] = bit ? "High" : "Low";
+                  if (dontCareFlags[index]) {
+                    activationFlags[index] = true;
+                  }
+                }
+                return { attributes, valueKey: entry.valueKey };
+              });
+            },
+          };
+        }
+
+        function createSpeedRangeAutoIncrementer(baseCase, { minStep = 0, maxStep = 0 } = {}) {
+          const minIncrement = Number(minStep) || 0;
+          const maxIncrement = Number(maxStep) || 0;
+          if (!minIncrement && !maxIncrement) {
+            return null;
+          }
+          const baseMin = Number(baseCase?.activationMinSpeed);
+          const baseMax = Number(baseCase?.activationMaxSpeed);
+          const resolvedBaseMin = Number.isFinite(baseMin) ? baseMin : 0;
+          const resolvedBaseMax = Number.isFinite(baseMax) ? baseMax : 0;
+          let step = 0;
+          return {
+            next() {
+              step += 1;
+              const activationMinSpeed = normalizeSpeedRangeValue(
+                resolvedBaseMin + minIncrement * step
+              );
+              const activationMaxSpeed = normalizeSpeedRangeValue(
+                resolvedBaseMax + maxIncrement * step
+              );
+              return { activationMinSpeed, activationMaxSpeed };
+            },
           };
         }
 
@@ -2819,6 +2929,25 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               replicateFormState.includeCutouts
             );
           }
+          if (replicateStaticInputsAutoInput) {
+            replicateStaticInputsAutoInput.checked = Boolean(
+              replicateFormState.autoStaticInputs
+            );
+          }
+          if (replicateSpeedMinStepInput) {
+            replicateSpeedMinStepInput.value = String(
+              Number.isFinite(replicateFormState.speedRangeMinStep)
+                ? replicateFormState.speedRangeMinStep
+                : 0
+            );
+          }
+          if (replicateSpeedMaxStepInput) {
+            replicateSpeedMaxStepInput.value = String(
+              Number.isFinite(replicateFormState.speedRangeMaxStep)
+                ? replicateFormState.speedRangeMaxStep
+                : 0
+            );
+          }
           if (replicateCasePrefixInput) {
             replicateCasePrefixInput.value = fallbackPrefix;
           }
@@ -2975,6 +3104,15 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const rotation = parseNumeric(replicateRotationInput?.value, 0) || 0;
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
+          const autoStaticInputs = Boolean(replicateStaticInputsAutoInput?.checked);
+          let speedRangeMinStep = parseInt(replicateSpeedMinStepInput?.value ?? "0", 10);
+          let speedRangeMaxStep = parseInt(replicateSpeedMaxStepInput?.value ?? "0", 10);
+          if (!Number.isFinite(speedRangeMinStep)) {
+            speedRangeMinStep = 0;
+          }
+          if (!Number.isFinite(speedRangeMaxStep)) {
+            speedRangeMaxStep = 0;
+          }
           replicateFormState.copyCount = copyCount;
           replicateFormState.casePrefix = casePrefix;
           replicateFormState.selectedCaseIndexes = selectedCaseIndexes;
@@ -2984,6 +3122,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateFormState.rotation = rotation;
           replicateFormState.scalePercent = scalePercent;
           replicateFormState.includeCutouts = includeCutouts;
+          replicateFormState.autoStaticInputs = autoStaticInputs;
+          replicateFormState.speedRangeMinStep = speedRangeMinStep;
+          replicateFormState.speedRangeMaxStep = speedRangeMaxStep;
           const availableSlots = casetableCasesLimit - casetableCases.length;
           const desiredCount = selectedCaseIndexes.length * copyCount;
           if (availableSlots <= 0) {
@@ -2999,6 +3140,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const createdFieldsets = [];
           const caseAssignments = [];
           const baseFieldsetCount = fieldsets.length;
+          const staticInputGenerators = autoStaticInputs ? new Map() : null;
+          const shouldAutoSpeedRange = speedRangeMinStep !== 0 || speedRangeMaxStep !== 0;
+          const speedRangeGenerators = shouldAutoSpeedRange ? new Map() : null;
           let casesMissingFieldsets = 0;
           for (let idx = 0; idx < selectedCaseIndexes.length; idx += 1) {
             const sourceCaseIndex = selectedCaseIndexes[idx];
@@ -3040,9 +3184,32 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                 }
               });
               const targetCaseIndex = casetableCases.length;
+              let staticInputsOverride = null;
+              if (staticInputGenerators) {
+                let generator = staticInputGenerators.get(sourceCaseIndex);
+                if (!generator) {
+                  generator = createStaticInputsAutoIncrementer(baseCase);
+                  staticInputGenerators.set(sourceCaseIndex, generator);
+                }
+                staticInputsOverride = generator?.next() || null;
+              }
+              let speedRangeOverride = null;
+              if (speedRangeGenerators) {
+                let generator = speedRangeGenerators.get(sourceCaseIndex);
+                if (!generator) {
+                  generator = createSpeedRangeAutoIncrementer(baseCase, {
+                    minStep: speedRangeMinStep,
+                    maxStep: speedRangeMaxStep,
+                  });
+                  speedRangeGenerators.set(sourceCaseIndex, generator);
+                }
+                speedRangeOverride = generator?.next() || null;
+              }
               const newCase = buildReplicatedCase(baseCase, {
                 caseIndex: targetCaseIndex,
                 prefix: casePrefix,
+                staticInputs: staticInputsOverride,
+                speedRange: speedRangeOverride,
               });
               if (!newCase) {
                 continue;
@@ -3139,6 +3306,14 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const rotation = parseNumeric(replicateRotationInput?.value, 0) || 0;
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
+          let speedRangeMinStep = parseInt(replicateSpeedMinStepInput?.value ?? "0", 10);
+          let speedRangeMaxStep = parseInt(replicateSpeedMaxStepInput?.value ?? "0", 10);
+          if (!Number.isFinite(speedRangeMinStep)) {
+            speedRangeMinStep = 0;
+          }
+          if (!Number.isFinite(speedRangeMaxStep)) {
+            speedRangeMaxStep = 0;
+          }
           if (target === "case") {
             const caseIndexes = captureSelectedReplicateCases();
             return {
@@ -3150,6 +3325,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotation,
               scalePercent,
               includeCutouts,
+              autoStaticInputs: Boolean(replicateStaticInputsAutoInput?.checked),
+              speedRangeMinStep,
+              speedRangeMaxStep,
             };
           }
           if (!replicateFieldsetSelect || !fieldsets.length) {
@@ -9372,6 +9550,8 @@ function parsePolygonTrace(doc) {
           replicateOffsetYInput,
           replicateRotationInput,
           replicateScalePercentInput,
+          replicateSpeedMinStepInput,
+          replicateSpeedMaxStepInput,
         ].forEach((input) => {
           if (input) {
             input.addEventListener("input", () => {
@@ -9400,6 +9580,9 @@ function parsePolygonTrace(doc) {
         }
         if (replicateIncludeCutoutsInput) {
           replicateIncludeCutoutsInput.addEventListener("change", updateReplicatePreview);
+        }
+        if (replicateStaticInputsAutoInput) {
+          replicateStaticInputsAutoInput.addEventListener("change", updateReplicatePreview);
         }
         function startCreateShapeDrag(event) {
           if (!createShapeModalWindow) return;
