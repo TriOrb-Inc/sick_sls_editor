@@ -8,6 +8,7 @@
 - ファイル読み書きは今後確認不要（承認済）なので、必要に応じて `python main.py` や Playwright 実行で上書き・保存してよい。
 - `<SdImportExport>` 以下の構造は変更しない。TriOrb 情報は `<TriOrb_SICK_SLS_Editor>` に格納し、それ以外のセクションと混在させない。Load 時には TriOrb メタ情報で形式を判別する。
 - コード変更時は必ずブラウザで起動し、コンソールにエラーが出ていないことを確認する（`renderFieldsets`/`renderFigure` 周りで録画され続ける mis-synced trace がないか検証）。
+- ./docs以下をAgentや手動で編集することはなく、mike deployを通じてのみ編集します
 
 ## テスト & 手動確認
 - ユニット: `pytest`
