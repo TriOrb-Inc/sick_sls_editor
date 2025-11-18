@@ -1677,6 +1677,10 @@
               Rotation (° / copy)
               <input type="number" id="replicate-rotation" step="1" value="0" />
             </label>
+            <label>
+              Scale (％ / copy)
+              <input type="number" id="replicate-scale-percent" step="1" value="0" />
+            </label>
             <label class="replicate-option">
               <input type="checkbox" id="replicate-include-cutouts" />
               Type = CutOut の Shape も複製する
@@ -1687,7 +1691,7 @@
             </label>
           </div>
           <p class="replicate-note">
-            選択した Fieldset 配下の Field をまとめて繰り返しコピーし、コピーごとに新しい Fieldset と Case を追加します。オフセット値はコピーごとの増分です。CutOut はデフォルトで除外されます。
+            選択した Fieldset 配下の Field をまとめて繰り返しコピーし、コピーごとに新しい Fieldset と Case を追加します。オフセット値と回転・スケールはコピーごとの増分です（Scale に 10 を指定するとコピーごとに 10% ずつ拡大、-5 で 5% ずつ縮小）。入力を変更すると背面の Plotly グラフに青色のプレビューが即時表示されます。CutOut はデフォルトで除外されます。
           </p>
         </div>
         <div class="modal-footer">
