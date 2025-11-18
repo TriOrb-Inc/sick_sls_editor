@@ -1319,6 +1319,26 @@
       .field-create-window {
         max-width: min(960px, 75vw);
       }
+      .replicate-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.6rem;
+      }
+      .replicate-grid label {
+        display: flex;
+        flex-direction: column;
+        font-weight: 600;
+        gap: 0.3rem;
+      }
+      .replicate-grid input,
+      .replicate-grid select {
+        font-weight: normal;
+      }
+      .replicate-note {
+        font-size: 0.85rem;
+        color: #475569;
+        margin-top: 0.5rem;
+      }
       .field-create-body .modal-section {
         margin-bottom: 0.85rem;
         display: flex;
@@ -1614,6 +1634,56 @@
         </div>
       </div>
     </div>
+    <div id="replicate-modal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-action="close-replicate-modal"></div>
+      <div class="modal-window replicate-modal-window" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <span class="modal-title">Replicate Fields</span>
+          <button type="button" class="inline-btn inline-danger shape-mini-btn" id="replicate-modal-close">
+            ×
+          </button>
+        </div>
+        <div class="modal-body replicate-modal-body">
+          <div class="replicate-grid">
+            <label>
+              Fieldset
+              <select id="replicate-fieldset-select"></select>
+            </label>
+            <label>
+              Field
+              <select id="replicate-field-select"></select>
+            </label>
+            <label>
+              Copies
+              <input type="number" id="replicate-copy-count" min="1" max="32" step="1" value="1" />
+            </label>
+            <label>
+              Offset X (mm / copy)
+              <input type="number" id="replicate-offset-x" step="1" value="0" />
+            </label>
+            <label>
+              Offset Y (mm / copy)
+              <input type="number" id="replicate-offset-y" step="1" value="0" />
+            </label>
+            <label>
+              Rotation (° / copy)
+              <input type="number" id="replicate-rotation" step="1" value="0" />
+            </label>
+            <label>
+              Case name prefix
+              <input type="text" id="replicate-case-prefix" placeholder="Case" />
+            </label>
+          </div>
+          <p class="replicate-note">
+            選択した Field を繰り返しコピーし、同数の Case を自動追加します。オフセット値はコピーごとの増分です。
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="inline-btn secondary" id="replicate-modal-cancel">Cancel</button>
+          <button type="button" class="inline-btn" id="replicate-modal-apply">Apply</button>
+        </div>
+      </div>
+    </div>
     <!-- アプリ全体のヘッダー領域 -->
     <header>
       <h1>TriOrb - SICK SLS Editor</h1>
@@ -1642,6 +1712,7 @@
           <div class="plot-overlay-controls">
             <button id="btn-add-shape-overlay" type="button">+ Shape</button>
             <button id="btn-add-field-overlay" type="button">+ Field</button>
+            <button id="btn-replicate-field" type="button">Replicate</button>
           </div>
         </div>
         <div class="case-filter">

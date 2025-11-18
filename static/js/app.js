@@ -2,6 +2,7 @@ import { pickFieldColor, pickTriOrbColor, resolveShapeStyle, withAlpha } from ".
 import {
   degreesToRadians,
   getRectangleCornerPoints,
+  rotatePoint,
   normalizeDegrees,
   parseNumeric,
 } from "./modules/geometry.js";
@@ -282,6 +283,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const createFieldModalSave = document.getElementById("create-field-modal-save");
         const createFieldModalHeader = createFieldModalWindow?.querySelector(".modal-header");
         const createFieldModalBody = createFieldModalWindow?.querySelector(".modal-body");
+        const replicateModal = document.getElementById("replicate-modal");
+        const replicateModalWindow = document.querySelector("#replicate-modal .modal-window");
+        const replicateModalClose = document.getElementById("replicate-modal-close");
+        const replicateModalCancel = document.getElementById("replicate-modal-cancel");
+        const replicateModalApply = document.getElementById("replicate-modal-apply");
+        const replicateModalHeader = replicateModalWindow?.querySelector(".modal-header");
+        const replicateModalBody = replicateModalWindow?.querySelector(".modal-body");
         const createFieldsetNameInput = document.getElementById("create-field-fieldset-name");
         const createFieldsetLatinInput = document.getElementById("create-field-fieldset-latin9");
         const createFieldNameInputs = [
@@ -309,6 +317,13 @@ document.addEventListener("DOMContentLoaded", () => {
             return acc;
           }, {})
         );
+        const replicateFieldsetSelect = document.getElementById("replicate-fieldset-select");
+        const replicateFieldSelect = document.getElementById("replicate-field-select");
+        const replicateCopyCountInput = document.getElementById("replicate-copy-count");
+        const replicateOffsetXInput = document.getElementById("replicate-offset-x");
+        const replicateOffsetYInput = document.getElementById("replicate-offset-y");
+        const replicateRotationInput = document.getElementById("replicate-rotation");
+        const replicateCasePrefixInput = document.getElementById("replicate-case-prefix");
         const fieldTypeLabels = ["ProtectiveSafeBlanking", "WarningSafeBlanking"];
         const createRectOriginXInput = document.getElementById("create-rect-originx");
         const createRectOriginYInput = document.getElementById("create-rect-originy");
@@ -405,6 +420,15 @@ document.addEventListener("DOMContentLoaded", () => {
         let createShapeMode = "create";
         let createShapeEditingId = null;
         let createShapeOriginal = null;
+        const replicateFormState = {
+          fieldsetIndex: 0,
+          fieldIndex: 0,
+          copyCount: 1,
+          offsetX: 0,
+          offsetY: 0,
+          rotation: 0,
+          casePrefix: "",
+        };
 
         renderScanPlanes();
         renderFieldsets();
@@ -1530,6 +1554,137 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               </div>`;
         }
 
+
+        function formatReplicateNumber(value) {
+          if (!Number.isFinite(value)) {
+            return "0";
+          }
+          return String(Math.round(value * 1000) / 1000);
+        }
+
+        function transformPolygonPoints(points, { offsetX = 0, offsetY = 0, rotation = 0 } = {}) {
+          const numericPoints = (points || []).map((point) => ({
+            x: parseNumeric(point.X, 0),
+            y: parseNumeric(point.Y, 0),
+          }));
+          if (!numericPoints.length) {
+            return [];
+          }
+          const center = numericPoints.reduce(
+            (acc, point) => {
+              acc.x += point.x;
+              acc.y += point.y;
+              return acc;
+            },
+            { x: 0, y: 0 }
+          );
+          center.x /= numericPoints.length;
+          center.y /= numericPoints.length;
+          const radians = rotation ? degreesToRadians(rotation) : 0;
+          return numericPoints.map((point) => {
+            let x = point.x;
+            let y = point.y;
+            if (rotation) {
+              const rotated = rotatePoint(x - center.x, y - center.y, radians, 0, 0);
+              x = rotated.x + center.x;
+              y = rotated.y + center.y;
+            }
+            x += offsetX;
+            y += offsetY;
+            return { X: formatReplicateNumber(x), Y: formatReplicateNumber(y) };
+          });
+        }
+
+        function applyReplicationTransform(shape, transform = {}) {
+          if (!shape) {
+            return;
+          }
+          const offsetX = Number(transform.offsetX) || 0;
+          const offsetY = Number(transform.offsetY) || 0;
+          const rotation = Number(transform.rotation) || 0;
+          if (!offsetX && !offsetY && !rotation) {
+            return;
+          }
+          if (shape.type === "Polygon" && shape.polygon) {
+            shape.polygon.points = transformPolygonPoints(shape.polygon.points || [], {
+              offsetX,
+              offsetY,
+              rotation,
+            });
+          } else if (shape.type === "Rectangle" && shape.rectangle) {
+            const originX = parseNumeric(shape.rectangle.OriginX, 0) + offsetX;
+            const originY = parseNumeric(shape.rectangle.OriginY, 0) + offsetY;
+            shape.rectangle.OriginX = formatReplicateNumber(originX);
+            shape.rectangle.OriginY = formatReplicateNumber(originY);
+            if (rotation) {
+              const baseRotation = parseNumeric(shape.rectangle.Rotation, 0);
+              shape.rectangle.Rotation = formatReplicateNumber(normalizeDegrees(baseRotation + rotation));
+            }
+          } else if (shape.type === "Circle" && shape.circle) {
+            const centerX = parseNumeric(shape.circle.CenterX, 0) + offsetX;
+            const centerY = parseNumeric(shape.circle.CenterY, 0) + offsetY;
+            shape.circle.CenterX = formatReplicateNumber(centerX);
+            shape.circle.CenterY = formatReplicateNumber(centerY);
+          }
+        }
+
+        function duplicateShapeForReplication(shapeId, transform, context = {}) {
+          if (!shapeId) {
+            return null;
+          }
+          const sourceShape = findTriOrbShapeById(shapeId);
+          if (!sourceShape) {
+            return null;
+          }
+          const clonedShape = cloneShape(sourceShape);
+          if (!clonedShape) {
+            return null;
+          }
+          clonedShape.id = createShapeId();
+          const suffix = context.copyIndex ? `Copy ${context.copyIndex}` : "Copy";
+          const baseName = sourceShape.name || sourceShape.id;
+          clonedShape.name = `${baseName} ${suffix}`.trim();
+          clonedShape.visible = true;
+          applyReplicationTransform(clonedShape, transform);
+          triorbShapes.push(clonedShape);
+          registerTriOrbShapeInRegistry(clonedShape);
+          return clonedShape.id;
+        }
+
+        function buildReplicatedField(baseField, { fieldIndex, copyIndex, transform }) {
+          if (!baseField) {
+            return null;
+          }
+          const attributes = cloneAttributes(baseField.attributes);
+          const fieldName = attributes.Name || `Field ${fieldIndex + 1}`;
+          const suffix = copyIndex ? `Copy ${copyIndex}` : "Copy";
+          attributes.Name = `${fieldName} ${suffix}`.trim();
+          if (attributes.NameLatin9Key) {
+            attributes.NameLatin9Key = `${attributes.NameLatin9Key}_${copyIndex}`;
+          } else {
+            attributes.NameLatin9Key = generateLatin9Key();
+          }
+          const shapeRefs = Array.isArray(baseField.shapeRefs) ? baseField.shapeRefs : [];
+          const newRefs = shapeRefs
+            .map((ref) => duplicateShapeForReplication(ref?.shapeId, transform, { copyIndex }))
+            .filter(Boolean)
+            .map((shapeId) => ({ shapeId }));
+          return {
+            attributes,
+            shapeRefs: newRefs,
+          };
+        }
+
+        function updateReplicateButtonState() {
+          if (!replicateFieldBtn) {
+            return;
+          }
+          const hasFields = fieldsets.some(
+            (fieldset) => Array.isArray(fieldset.fields) && fieldset.fields.length
+          );
+          replicateFieldBtn.disabled = !hasFields;
+        }
+
         function renderFieldsets() {
           if (!fieldsetsContainer) {
             return;
@@ -1733,6 +1888,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           renderFigure();
           regenerateFieldsConfiguration();
           restoreFieldsetDetailState(detailState);
+          updateReplicateButtonState();
         }
 
         function renderFieldShapeControls(fieldsetIndex, fieldIndex, field) {
@@ -2041,6 +2197,231 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           setStatus(`${fieldsetName} を作成しました。`, "ok");
           renderFieldsets();
           return true;
+        }
+
+
+        function getReplicateFieldName(fieldsetIndex, fieldIndex) {
+          const fieldset = fieldsets[fieldsetIndex];
+          if (!fieldset || !Array.isArray(fieldset.fields)) {
+            return "";
+          }
+          return fieldset.fields[fieldIndex]?.attributes?.Name || "";
+        }
+
+        function updateReplicateCasePrefixPlaceholder(fieldsetIndex, fieldIndex) {
+          if (!replicateCasePrefixInput) {
+            return;
+          }
+          const fallback = getReplicateFieldName(fieldsetIndex, fieldIndex) || "Case";
+          replicateCasePrefixInput.placeholder = fallback;
+        }
+
+        function populateReplicateFieldsetOptions(preferredIndex = 0) {
+          if (!replicateFieldsetSelect) {
+            return -1;
+          }
+          if (!fieldsets.length) {
+            replicateFieldsetSelect.innerHTML = '<option value="">No fieldsets</option>';
+            replicateFieldsetSelect.disabled = true;
+            if (replicateFieldSelect) {
+              replicateFieldSelect.innerHTML = '<option value="">No fields</option>';
+              replicateFieldSelect.disabled = true;
+            }
+            return -1;
+          }
+          const safeIndex = Math.min(Math.max(preferredIndex, 0), fieldsets.length - 1);
+          replicateFieldsetSelect.disabled = false;
+          replicateFieldsetSelect.innerHTML = fieldsets
+            .map((fieldset, index) =>
+              `<option value="${index}">${escapeHtml(fieldset.attributes?.Name || `Fieldset ${index + 1}`)}</option>`
+            )
+            .join("");
+          replicateFieldsetSelect.value = String(safeIndex);
+          return safeIndex;
+        }
+
+        function populateReplicateFieldOptions(fieldsetIndex, preferredFieldIndex = 0) {
+          if (!replicateFieldSelect) {
+            return -1;
+          }
+          const fieldset = fieldsets[fieldsetIndex];
+          const fields = Array.isArray(fieldset?.fields) ? fieldset.fields : [];
+          if (!fields.length) {
+            replicateFieldSelect.innerHTML = '<option value="">No fields</option>';
+            replicateFieldSelect.disabled = true;
+            return -1;
+          }
+          const safeIndex = Math.min(Math.max(preferredFieldIndex, 0), fields.length - 1);
+          replicateFieldSelect.disabled = false;
+          replicateFieldSelect.innerHTML = fields
+            .map((field, index) =>
+              `<option value="${index}">${escapeHtml(field.attributes?.Name || `Field ${index + 1}`)}</option>`
+            )
+            .join("");
+          replicateFieldSelect.value = String(safeIndex);
+          return safeIndex;
+        }
+
+        function resetReplicateModalTransform() {
+          replicateModalOffsetX = 0;
+          replicateModalOffsetY = 0;
+          replicateModalLastDx = 0;
+          replicateModalLastDy = 0;
+          if (replicateModalWindow) {
+            replicateModalWindow.style.transform = "translate(0px, 0px)";
+            replicateModalWindow.style.width = "";
+            replicateModalWindow.style.height = "";
+          }
+        }
+
+        function openReplicateModal() {
+          if (!replicateModal) {
+            return;
+          }
+          if (!fieldsets.length) {
+            setStatus("複製できる Fieldset がありません。", "warning");
+            return;
+          }
+          const selectedFieldsetIndex = populateReplicateFieldsetOptions(
+            replicateFormState.fieldsetIndex
+          );
+          if (selectedFieldsetIndex < 0) {
+            setStatus("複製対象の Fieldset が選択できません。", "error");
+            return;
+          }
+          const selectedFieldIndex = populateReplicateFieldOptions(
+            selectedFieldsetIndex,
+            replicateFormState.fieldIndex
+          );
+          if (selectedFieldIndex < 0) {
+            setStatus("選択した Fieldset に Field が存在しません。", "warning");
+            return;
+          }
+          replicateFormState.fieldsetIndex = selectedFieldsetIndex;
+          replicateFormState.fieldIndex = selectedFieldIndex;
+          updateReplicateCasePrefixPlaceholder(selectedFieldsetIndex, selectedFieldIndex);
+          const fallbackPrefix =
+            replicateFormState.casePrefix ||
+            getReplicateFieldName(selectedFieldsetIndex, selectedFieldIndex) ||
+            "Case";
+          if (replicateCopyCountInput) {
+            replicateCopyCountInput.value = replicateFormState.copyCount ?? 1;
+          }
+          if (replicateOffsetXInput) {
+            replicateOffsetXInput.value = replicateFormState.offsetX ?? 0;
+          }
+          if (replicateOffsetYInput) {
+            replicateOffsetYInput.value = replicateFormState.offsetY ?? 0;
+          }
+          if (replicateRotationInput) {
+            replicateRotationInput.value = replicateFormState.rotation ?? 0;
+          }
+          if (replicateCasePrefixInput) {
+            replicateCasePrefixInput.value = fallbackPrefix;
+          }
+          replicateModal.classList.add("active");
+          replicateModal.setAttribute("aria-hidden", "false");
+          resetReplicateModalTransform();
+        }
+
+        function closeReplicateModal() {
+          if (!replicateModal) {
+            return;
+          }
+          replicateModal.classList.remove("active");
+          replicateModal.setAttribute("aria-hidden", "true");
+          resetReplicateModalTransform();
+        }
+
+        function handleReplicateApply() {
+          if (!replicateFieldsetSelect || !replicateFieldSelect) {
+            return;
+          }
+          const fieldsetIndex = Number(replicateFieldsetSelect.value);
+          const fieldIndex = Number(replicateFieldSelect.value);
+          if (
+            Number.isNaN(fieldsetIndex) ||
+            fieldsetIndex < 0 ||
+            fieldsetIndex >= fieldsets.length
+          ) {
+            setStatus("有効な Fieldset を選択してください。", "error");
+            return;
+          }
+          const fieldset = fieldsets[fieldsetIndex];
+          if (!fieldset || !Array.isArray(fieldset.fields)) {
+            setStatus("選択した Fieldset に Field がありません。", "error");
+            return;
+          }
+          if (Number.isNaN(fieldIndex) || fieldIndex < 0 || fieldIndex >= fieldset.fields.length) {
+            setStatus("有効な Field を選択してください。", "error");
+            return;
+          }
+          let copyCount = parseInt(replicateCopyCountInput?.value ?? "1", 10);
+          if (!Number.isFinite(copyCount) || copyCount < 1) {
+            copyCount = 1;
+          }
+          copyCount = Math.min(32, copyCount);
+          const offsetX = parseNumeric(replicateOffsetXInput?.value, 0) || 0;
+          const offsetY = parseNumeric(replicateOffsetYInput?.value, 0) || 0;
+          const rotation = parseNumeric(replicateRotationInput?.value, 0) || 0;
+          const prefixInput = replicateCasePrefixInput?.value?.trim();
+          const casePrefix =
+            prefixInput || getReplicateFieldName(fieldsetIndex, fieldIndex) || "Case";
+          replicateFormState.fieldsetIndex = fieldsetIndex;
+          replicateFormState.fieldIndex = fieldIndex;
+          replicateFormState.copyCount = copyCount;
+          replicateFormState.offsetX = offsetX;
+          replicateFormState.offsetY = offsetY;
+          replicateFormState.rotation = rotation;
+          replicateFormState.casePrefix = casePrefix;
+          const baseField = fieldset.fields[fieldIndex];
+          const createdFields = [];
+          for (let step = 1; step <= copyCount; step += 1) {
+            const transform = {
+              offsetX: offsetX * step,
+              offsetY: offsetY * step,
+              rotation: rotation * step,
+            };
+            const replicatedField = buildReplicatedField(baseField, {
+              fieldIndex,
+              copyIndex: step,
+              transform,
+            });
+            if (replicatedField) {
+              fieldset.fields.push(replicatedField);
+              createdFields.push(replicatedField.attributes?.Name || `Field ${fieldset.fields.length}`);
+            }
+          }
+          if (!createdFields.length) {
+            setStatus("Field の複製に失敗しました。", "error");
+            return;
+          }
+          const availableSlots = casetableCasesLimit - casetableCases.length;
+          const casesToCreate = Math.min(availableSlots, createdFields.length);
+          const createdCaseNames = [];
+          for (let idx = 0; idx < casesToCreate; idx += 1) {
+            const newCase = createDefaultCasetableCase(casetableCases.length);
+            const caseName = `${casePrefix} ${casetableCases.length + 1}`;
+            newCase.attributes.Name = caseName;
+            casetableCases.push(newCase);
+            caseToggleStates.push(false);
+            createdCaseNames.push(caseName);
+          }
+          renderFieldsets();
+          renderTriOrbShapes();
+          renderTriOrbShapeCheckboxes();
+          renderCasetableCases();
+          closeReplicateModal();
+          let statusType = "ok";
+          let caseMessage = `${createdCaseNames.length} 件の Case を追加しました。`;
+          if (!createdCaseNames.length) {
+            caseMessage = "Case 上限のため新規 Case は追加されませんでした。";
+            statusType = "warning";
+          } else if (createdCaseNames.length < createdFields.length) {
+            statusType = "warning";
+            caseMessage = `${createdCaseNames.length} 件の Case を追加しました (上限により ${createdFields.length - createdCaseNames.length} 件は未作成)。`;
+          }
+          setStatus(`${createdFields.length} 個の Field を複製しました。${caseMessage}`, statusType);
         }
 
         function registerTriOrbShapeInRegistry(shape) {
@@ -7599,6 +7980,7 @@ function parsePolygonTrace(doc) {
         }
         const overlayShapeBtn = document.getElementById("btn-add-shape-overlay");
         const overlayFieldBtn = document.getElementById("btn-add-field-overlay");
+        const replicateFieldBtn = document.getElementById("btn-replicate-field");
         let createShapeModalOffsetX = 0;
         let createShapeModalOffsetY = 0;
         let createShapeDragStartX = 0;
@@ -7619,6 +8001,16 @@ function parsePolygonTrace(doc) {
         let isCreateFieldModalResizing = false;
         let createFieldModalLastDx = 0;
         let createFieldModalLastDy = 0;
+        let replicateModalOffsetX = 0;
+        let replicateModalOffsetY = 0;
+        let replicateModalDragStartX = 0;
+        let replicateModalDragStartY = 0;
+        let replicateModalInitialWidth = 0;
+        let replicateModalInitialHeight = 0;
+        let replicateModalLastDx = 0;
+        let replicateModalLastDy = 0;
+        let isReplicateModalDragging = false;
+        let isReplicateModalResizing = false;
         function ensureCreateShapePosition() {
           if (createShapeModalWindow) {
             createShapeModalWindow.style.transform = `translate(${createShapeModalOffsetX}px, ${createShapeModalOffsetY}px)`;
@@ -8037,6 +8429,9 @@ function parsePolygonTrace(doc) {
             openCreateFieldModalForCreate();
           });
         }
+        if (replicateFieldBtn) {
+          replicateFieldBtn.addEventListener("click", openReplicateModal);
+        }
         if (createShapeTypeSelect) {
           createShapeTypeSelect.addEventListener("change", () => {
             updateCreateShapeDimensionVisibility();
@@ -8116,6 +8511,13 @@ function parsePolygonTrace(doc) {
             }
           });
         }
+        if (replicateModal) {
+          replicateModal.addEventListener("click", (event) => {
+            if (event.target?.dataset?.action === "close-replicate-modal") {
+              closeReplicateModal();
+            }
+          });
+        }
         if (createFieldModalClose) {
           createFieldModalClose.addEventListener("click", closeCreateFieldModal);
         }
@@ -8128,6 +8530,15 @@ function parsePolygonTrace(doc) {
               closeCreateFieldModal();
             }
           });
+        }
+        if (replicateModalClose) {
+          replicateModalClose.addEventListener("click", closeReplicateModal);
+        }
+        if (replicateModalCancel) {
+          replicateModalCancel.addEventListener("click", closeReplicateModal);
+        }
+        if (replicateModalApply) {
+          replicateModalApply.addEventListener("click", handleReplicateApply);
         }
         createFieldShapeLists.forEach((listObj) => {
           Object.values(listObj).forEach((list) => {
@@ -8146,6 +8557,31 @@ function parsePolygonTrace(doc) {
             select.addEventListener("change", updateFieldModalPreview);
           }
         });
+        if (replicateFieldsetSelect) {
+          replicateFieldsetSelect.addEventListener("change", (event) => {
+            const nextIndex = Number(event.target.value);
+            const safeFieldsetIndex = Number.isFinite(nextIndex)
+              ? Math.max(0, nextIndex)
+              : 0;
+            const selectedFieldIndex = populateReplicateFieldOptions(safeFieldsetIndex, 0);
+            replicateFormState.fieldsetIndex = safeFieldsetIndex;
+            replicateFormState.fieldIndex = Math.max(0, selectedFieldIndex);
+            updateReplicateCasePrefixPlaceholder(
+              replicateFormState.fieldsetIndex,
+              replicateFormState.fieldIndex
+            );
+          });
+        }
+        if (replicateFieldSelect) {
+          replicateFieldSelect.addEventListener("change", (event) => {
+            const nextFieldIndex = Number(event.target.value);
+            if (Number.isFinite(nextFieldIndex) && nextFieldIndex >= 0) {
+              replicateFormState.fieldIndex = nextFieldIndex;
+              const fieldsetIndex = Number(replicateFieldsetSelect?.value ?? 0) || 0;
+              updateReplicateCasePrefixPlaceholder(fieldsetIndex, nextFieldIndex);
+            }
+          });
+        }
         function startCreateShapeDrag(event) {
           if (!createShapeModalWindow) return;
           isCreateShapeDragging = true;
@@ -8262,6 +8698,70 @@ function parsePolygonTrace(doc) {
             createFieldModalWindow.style.transition = "";
           }
         }
+
+        function startReplicateModalDrag(event) {
+          if (!replicateModalWindow) {
+            return;
+          }
+          isReplicateModalDragging = true;
+          replicateModalDragStartX = event.clientX;
+          replicateModalDragStartY = event.clientY;
+          replicateModalWindow.style.transition = "none";
+        }
+
+        function updateReplicateModalDrag(event) {
+          if (!isReplicateModalDragging || !replicateModalWindow) {
+            return;
+          }
+          const dx = event.clientX - replicateModalDragStartX;
+          const dy = event.clientY - replicateModalDragStartY;
+          replicateModalWindow.style.transform = `translate(${replicateModalOffsetX + dx}px, ${replicateModalOffsetY + dy}px)`;
+          replicateModalLastDx = dx;
+          replicateModalLastDy = dy;
+        }
+
+        function endReplicateModalDrag() {
+          if (!isReplicateModalDragging) {
+            return;
+          }
+          replicateModalOffsetX += replicateModalLastDx;
+          replicateModalOffsetY += replicateModalLastDy;
+          isReplicateModalDragging = false;
+          if (replicateModalWindow) {
+            replicateModalWindow.style.transition = "";
+          }
+        }
+
+        function startReplicateModalResize(event) {
+          if (!replicateModalWindow) {
+            return;
+          }
+          isReplicateModalResizing = true;
+          replicateModalDragStartX = event.clientX;
+          replicateModalDragStartY = event.clientY;
+          replicateModalInitialWidth = replicateModalWindow.offsetWidth;
+          replicateModalInitialHeight = replicateModalWindow.offsetHeight;
+          replicateModalWindow.style.transition = "none";
+        }
+
+        function updateReplicateModalResize(event) {
+          if (!isReplicateModalResizing || !replicateModalWindow) {
+            return;
+          }
+          const dx = event.clientX - replicateModalDragStartX;
+          const dy = event.clientY - replicateModalDragStartY;
+          const width = Math.max(320, replicateModalInitialWidth + dx);
+          const height = Math.max(320, replicateModalInitialHeight + dy);
+          replicateModalWindow.style.width = `${width}px`;
+          replicateModalWindow.style.height = `${height}px`;
+        }
+
+        function endReplicateModalResize() {
+          isReplicateModalResizing = false;
+          if (replicateModalWindow) {
+            replicateModalWindow.style.transition = "";
+          }
+        }
         if (createShapeModalHeader) {
           createShapeModalHeader.addEventListener("pointerdown", startCreateShapeDrag);
         }
@@ -8288,17 +8788,36 @@ function parsePolygonTrace(doc) {
           event.preventDefault();
           startCreateFieldModalResize(event);
         });
+        if (replicateModalHeader) {
+          replicateModalHeader.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            startReplicateModalDrag(event);
+          });
+        }
+        if (replicateModalBody || replicateModalWindow) {
+          const replicateResizeHandle = document.createElement("div");
+          replicateResizeHandle.className = "modal-resize-handle field-resize-handle";
+          (replicateModalBody || replicateModalWindow)?.appendChild(replicateResizeHandle);
+          replicateResizeHandle.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            startReplicateModalResize(event);
+          });
+        }
         document.addEventListener("pointermove", (event) => {
           updateCreateShapeDrag(event);
           updateCreateShapeResize(event);
           updateCreateFieldModalDrag(event);
           updateCreateFieldModalResize(event);
+          updateReplicateModalDrag(event);
+          updateReplicateModalResize(event);
         });
         document.addEventListener("pointerup", () => {
           endCreateShapeDrag();
           endCreateShapeResize();
           endCreateFieldModalDrag();
           endCreateFieldModalResize();
+          endReplicateModalDrag();
+          endReplicateModalResize();
         });
 
         if (toggleLegendBtn) {
