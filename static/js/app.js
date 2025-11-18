@@ -7031,12 +7031,15 @@ function parsePolygonTrace(doc) {
 
         function buildUserFieldLookup() {
           const lookup = new Map();
-          let counter = 1;
-          fieldsets.forEach((fieldset, fieldsetIndex) => {
-            (fieldset.fields || []).forEach((_, fieldIndex) => {
-              lookup.set(String(counter), { fieldsetIndex, fieldIndex });
-              counter += 1;
-            });
+          triorbShapes.forEach((shape, index) => {
+            if (!shape || !shape.id) {
+              return;
+            }
+            const key = String(index + 1);
+            const fieldsetIndexes = getFieldsetIndexesReferencingShape(shape.id);
+            if (fieldsetIndexes.length) {
+              lookup.set(key, fieldsetIndexes);
+            }
           });
           return lookup;
         }
@@ -7094,9 +7097,11 @@ function parsePolygonTrace(doc) {
               if (!userFieldId) {
                 return;
               }
-              const mapping = lookup.get(userFieldId);
-              if (mapping) {
-                assignment.add(mapping.fieldsetIndex);
+              const fieldsetIndexes = lookup.get(userFieldId);
+              if (fieldsetIndexes && fieldsetIndexes.length) {
+                fieldsetIndexes.forEach((fieldsetIndex) => {
+                  assignment.add(fieldsetIndex);
+                });
               }
             });
             return assignment;
