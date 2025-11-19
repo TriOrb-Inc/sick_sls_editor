@@ -386,6 +386,11 @@ document.addEventListener("DOMContentLoaded", () => {
           "Preset Field 2",
           "Preset Field 3",
         ];
+        const statFieldDefinitions = [
+          { tag: "PermRed", id: "59", label: "PermRed" },
+          { tag: "PermGreen", id: "60", label: "PermGreen" },
+          { tag: "PermGreenWf", id: "61", label: "PermGreenWf" },
+        ];
         let casetableEvals = normalizeCasetableEvals(
           casetablePayload?.evals,
           casetableCases.length
@@ -1944,11 +1949,18 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (!shapeId) {
             return "";
           }
-          const index = triorbShapes.findIndex((shape) => shape.id === shapeId);
-          if (index < 0) {
-            return "";
+          const userFieldDefinitions = collectUserFieldDefinitions();
+          for (const entry of userFieldDefinitions) {
+            const shapeRefs = Array.isArray(entry.field?.shapeRefs)
+              ? entry.field.shapeRefs
+              : [];
+            if (
+              shapeRefs.some((ref) => ref?.shapeId && String(ref.shapeId) === String(shapeId))
+            ) {
+              return entry.id;
+            }
           }
-          return String(index + 1);
+          return "";
         }
 
         function getFieldsetIndexesForCase(caseIndex) {
@@ -4751,22 +4763,25 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         }
 
         function resolveEvalUserFieldOptions() {
-          const options = triorbShapes.map((shape, index) => {
-            const displayIndex = index + 1;
+          const userFieldDefinitions = collectUserFieldDefinitions({ includeStatFields: true });
+          const options = userFieldDefinitions.map((definition) => {
+            const label = formatUserFieldLabel(definition) || definition.id;
             return {
-              value: String(displayIndex),
-              label: `#${displayIndex} ${shape.name || shape.id}`,
+              value: definition.id,
+              label: `#${definition.id} ${label}`,
             };
           });
-          const fallbackStart = triorbShapes.length ? triorbShapes.length + 1 : 1;
-          evalUserFieldFallbackLabels.forEach((label, offset) => {
-            const indexValue = fallbackStart + offset;
-            options.push({
-              value: String(indexValue),
-              label: `#${indexValue} ${label}`,
-              isFallback: true,
+          if (!options.length) {
+            const fallbackOptions = evalUserFieldFallbackLabels.map((label, index) => {
+              const value = String(index + 1);
+              return { value, label: `#${value} ${label}`, isFallback: true };
             });
-          });
+            return {
+              options: fallbackOptions,
+              values: new Set(fallbackOptions.map((option) => option.value)),
+              defaultValue: fallbackOptions[0]?.value ?? "",
+            };
+          }
           return {
             options,
             values: new Set(options.map((option) => option.value)),
@@ -5789,7 +5804,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
               );
               (polygon.points || []).forEach((point) => {
                 const pointAttrs = buildAttributeString(
-                  point,
+                  sanitizePointAttributes(point),
                   getAttributeOrder("Point")
                 );
                 lines.push(
@@ -5825,14 +5840,14 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           if (fieldsets.length) {
             fieldsets.forEach((fieldset) => {
               const attrText = buildAttributeString(
-                fieldset.attributes,
+                stripLatin9Key(fieldset.attributes),
                 getAttributeOrder("Fieldset")
               );
               lines.push(`        <Fieldset${attrText ? " " + attrText : ""}>`);
               if (fieldset.fields && fieldset.fields.length) {
                 fieldset.fields.forEach((field) => {
                   const fieldAttrs = buildAttributeString(
-                    field.attributes,
+                    stripLatin9Key(field.attributes),
                     getAttributeOrder("Field")
                   );
                   lines.push(`          <Field${fieldAttrs ? " " + fieldAttrs : ""}>`);
@@ -5853,7 +5868,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                         );
                         (shape.polygon.points || []).forEach((point) => {
                           const pointAttrs = buildAttributeString(
-                            point,
+                            sanitizePointAttributes(point),
                             getAttributeOrder("Point")
                           );
                           lines.push(
@@ -6070,17 +6085,14 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           const childLines = [];
           const layout = deriveCaseLayout(caseData);
           const caseNameValue =
-            extractCaseNodeText(caseData, "Name") ??
             caseData.attributes?.Name ??
+            extractCaseNodeText(caseData, "Name") ??
             buildCaseName(caseIndex);
           const latin9Value =
-            extractCaseNodeText(caseData, "NameLatin9Key") ??
             caseData.attributes?.NameLatin9Key ??
+            extractCaseNodeText(caseData, "NameLatin9Key") ??
             "";
-          const displayOrderValue =
-            extractCaseNodeText(caseData, "DisplayOrder") ??
-            caseData.attributes?.DisplayOrder ??
-            String(caseIndex);
+          const displayOrderValue = String(caseIndex);
           let hasNameNode = false;
           let hasLatinNode = false;
           let hasDisplayOrderNode = false;
@@ -6114,7 +6126,8 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                   ...buildActivationNodeLines(
                     segment.node,
                     caseData,
-                    indentLevel + 1
+                    indentLevel + 1,
+                    caseIndex
                   )
                 );
               } else if (segment.node.tag === "Activation") {
@@ -6122,6 +6135,18 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                   ...buildActivationNodeLines(
                     segment.node,
                     caseData,
+                    indentLevel + 1,
+                    caseIndex
+                  )
+                );
+              } else if (segment.node.tag === "StaticInputs") {
+                childLines.push(
+                  ...buildStaticInputsLines(caseData.staticInputs, indentLevel + 1)
+                );
+              } else if (segment.node.tag === "SpeedActivation") {
+                childLines.push(
+                  ...buildSpeedActivationLines(
+                    caseData.speedActivation,
                     indentLevel + 1
                   )
                 );
@@ -6149,24 +6174,40 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           return lines;
         }
 
-        function buildActivationNodeLines(node, caseData, indentLevel) {
+        function buildActivationNodeLines(node, caseData, indentLevel, caseIndex = 0) {
           const indent = "  ".repeat(indentLevel);
           const attrText = buildRootAttributes(node.attributes, getAttributeOrder(node.tag));
           const lines = [`${indent}<${sanitizeTagName(node.tag)}${attrText ? ` ${attrText}` : ""}>`];
           const childNodes = Array.isArray(node.children) ? node.children : [];
+          const activationHasStaticInputs = childNodes.some(
+            (child) => child?.tag === "StaticInputs"
+          );
+          const activationHasSpeedActivation = childNodes.some(
+            (child) => child?.tag === "SpeedActivation"
+          );
+          const inlineActivationStaticInputs =
+            caseData.staticInputsPlacement === "activation" || activationHasStaticInputs;
+          const inlineActivationSpeedActivation =
+            caseData.speedActivationPlacement === "activation" || activationHasSpeedActivation;
           let staticInserted = false;
           let speedInserted = false;
           let minSpeedInserted = false;
           let maxSpeedInserted = false;
+          let caseNumberInserted = false;
           const minSpeedValue = getCaseSpeedRangeValue(caseData, "min");
           const maxSpeedValue = getCaseSpeedRangeValue(caseData, "max");
+          const numericIndex = Number.isFinite(caseIndex)
+            ? caseIndex
+            : Number.parseInt(caseIndex, 10);
+          const caseNumberValue = String((Number.isFinite(numericIndex) ? numericIndex : 0) + 1);
+          let caseNumberInsertIndex = lines.length;
           childNodes.forEach((child) => {
-            if (child.tag === "StaticInputs" && caseData.staticInputsPlacement === "activation") {
+            if (child.tag === "StaticInputs" && inlineActivationStaticInputs) {
               lines.push(...buildStaticInputsLines(caseData.staticInputs, indentLevel + 1));
               staticInserted = true;
             } else if (
               child.tag === "SpeedActivation" &&
-              caseData.speedActivationPlacement === "activation"
+              inlineActivationSpeedActivation
             ) {
               lines.push(...buildSpeedActivationLines(caseData.speedActivation, indentLevel + 1));
               speedInserted = true;
@@ -6180,14 +6221,21 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                 ...buildSimpleTextNodeLines("MaxSpeed", maxSpeedValue, indentLevel + 1)
               );
               maxSpeedInserted = true;
+              caseNumberInsertIndex = lines.length;
+            } else if (child.tag === "CaseNumber") {
+              lines.push(
+                ...buildSimpleTextNodeLines("CaseNumber", caseNumberValue, indentLevel + 1)
+              );
+              caseNumberInserted = true;
+              caseNumberInsertIndex = lines.length;
             } else {
               lines.push(...buildGenericNodeLines(child, indentLevel + 1));
             }
           });
-          if (!staticInserted && caseData.staticInputsPlacement === "activation") {
+          if (!staticInserted && inlineActivationStaticInputs) {
             lines.push(...buildStaticInputsLines(caseData.staticInputs, indentLevel + 1));
           }
-          if (!speedInserted && caseData.speedActivationPlacement === "activation") {
+          if (!speedInserted && inlineActivationSpeedActivation) {
             lines.push(...buildSpeedActivationLines(caseData.speedActivation, indentLevel + 1));
           }
           if (!minSpeedInserted) {
@@ -6195,6 +6243,15 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           }
           if (!maxSpeedInserted) {
             lines.push(...buildSimpleTextNodeLines("MaxSpeed", maxSpeedValue, indentLevel + 1));
+            caseNumberInsertIndex = lines.length;
+          }
+          if (!caseNumberInserted) {
+            const caseNumberLines = buildSimpleTextNodeLines(
+              "CaseNumber",
+              caseNumberValue,
+              indentLevel + 1
+            );
+            lines.splice(caseNumberInsertIndex, 0, ...caseNumberLines);
           }
           lines.push(`${indent}</${sanitizeTagName(node.tag)}>`);
           return lines;
@@ -6308,6 +6365,45 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           }
           lines.push(`${indent}</Evals>`);
           return lines;
+        }
+
+        function collectUserFieldDefinitions({ includeStatFields = false } = {}) {
+          const entries = [];
+          if (Array.isArray(fieldsets)) {
+            let counter = 1;
+            fieldsets.forEach((fieldset, fieldsetIndex) => {
+              const fields = Array.isArray(fieldset?.fields) ? fieldset.fields : [];
+              fields.forEach((field, fieldIndex) => {
+                entries.push({
+                  id: String(counter),
+                  fieldsetIndex,
+                  fieldIndex,
+                  field,
+                  fieldset,
+                  type: "fieldset",
+                });
+                counter += 1;
+              });
+            });
+          }
+          if (includeStatFields) {
+            statFieldDefinitions.forEach((definition) => {
+              entries.push({ ...definition, type: "stat" });
+            });
+          }
+          return entries;
+        }
+
+        function formatUserFieldLabel(entry) {
+          if (!entry) {
+            return "";
+          }
+          if (entry.type === "stat") {
+            return entry.label || entry.tag || entry.id;
+          }
+          const fieldsetName = entry.fieldset?.attributes?.Name || `Fieldset ${entry.fieldsetIndex + 1}`;
+          const fieldName = entry.field?.attributes?.Name || `Field ${entry.fieldIndex + 1}`;
+          return `${fieldsetName} / ${fieldName}`;
         }
 
         function regenerateFieldsConfiguration({ rerender = true } = {}) {
@@ -6434,11 +6530,12 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
         }
 
         function buildFieldsConfigurationStatFields() {
-          return [
-            { tag: "PermRed", attributes: { Id: "59" }, text: "", children: [] },
-            { tag: "PermGreen", attributes: { Id: "60" }, text: "", children: [] },
-            { tag: "PermGreenWf", attributes: { Id: "61" }, text: "", children: [] },
-          ];
+          return statFieldDefinitions.map((definition) => ({
+            tag: definition.tag,
+            attributes: { Id: definition.id },
+            text: "",
+            children: [],
+          }));
         }
 
         function buildCasetablesXml() {
@@ -6509,6 +6606,37 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                 `${sanitizeTagName(key)}="${escapeXml(String(attrs[key] ?? ""))}"`
             )
             .join(" ");
+        }
+
+        function stripLatin9Key(attrs) {
+          if (!attrs || typeof attrs !== "object") {
+            return {};
+          }
+          const next = { ...attrs };
+          delete next.NameLatin9Key;
+          return next;
+        }
+
+        function normalizePointCoordinate(value) {
+          if (typeof value === "number" && Number.isFinite(value)) {
+            return String(Math.trunc(value));
+          }
+          const parsed = Number.parseFloat(value);
+          if (Number.isFinite(parsed)) {
+            return String(Math.trunc(parsed));
+          }
+          return typeof value === "string" ? value.trim() : String(value ?? "");
+        }
+
+        function sanitizePointAttributes(point) {
+          const attrs = { ...(point || {}) };
+          if (Object.prototype.hasOwnProperty.call(attrs, "X")) {
+            attrs.X = normalizePointCoordinate(attrs.X);
+          }
+          if (Object.prototype.hasOwnProperty.call(attrs, "Y")) {
+            attrs.Y = normalizePointCoordinate(attrs.Y);
+          }
+          return attrs;
         }
 
         function getAttributeOrder(tag) {
@@ -8673,15 +8801,12 @@ function parsePolygonTrace(doc) {
 
         function buildUserFieldLookup() {
           const lookup = new Map();
-          triorbShapes.forEach((shape, index) => {
-            if (!shape || !shape.id) {
+          const userFieldDefinitions = collectUserFieldDefinitions();
+          userFieldDefinitions.forEach((definition) => {
+            if (!Number.isFinite(definition.fieldsetIndex)) {
               return;
             }
-            const key = String(index + 1);
-            const fieldsetIndexes = getFieldsetIndexesReferencingShape(shape.id);
-            if (fieldsetIndexes.length) {
-              lookup.set(key, fieldsetIndexes);
-            }
+            lookup.set(definition.id, [definition.fieldsetIndex]);
           });
           return lookup;
         }
