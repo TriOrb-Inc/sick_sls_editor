@@ -5789,7 +5789,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
               );
               (polygon.points || []).forEach((point) => {
                 const pointAttrs = buildAttributeString(
-                  point,
+                  sanitizePointAttributes(point),
                   getAttributeOrder("Point")
                 );
                 lines.push(
@@ -5825,14 +5825,14 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           if (fieldsets.length) {
             fieldsets.forEach((fieldset) => {
               const attrText = buildAttributeString(
-                fieldset.attributes,
+                stripLatin9Key(fieldset.attributes),
                 getAttributeOrder("Fieldset")
               );
               lines.push(`        <Fieldset${attrText ? " " + attrText : ""}>`);
               if (fieldset.fields && fieldset.fields.length) {
                 fieldset.fields.forEach((field) => {
                   const fieldAttrs = buildAttributeString(
-                    field.attributes,
+                    stripLatin9Key(field.attributes),
                     getAttributeOrder("Field")
                   );
                   lines.push(`          <Field${fieldAttrs ? " " + fieldAttrs : ""}>`);
@@ -5853,7 +5853,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                         );
                         (shape.polygon.points || []).forEach((point) => {
                           const pointAttrs = buildAttributeString(
-                            point,
+                            sanitizePointAttributes(point),
                             getAttributeOrder("Point")
                           );
                           lines.push(
@@ -6077,10 +6077,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
             extractCaseNodeText(caseData, "NameLatin9Key") ??
             caseData.attributes?.NameLatin9Key ??
             "";
-          const displayOrderValue =
-            extractCaseNodeText(caseData, "DisplayOrder") ??
-            caseData.attributes?.DisplayOrder ??
-            String(caseIndex);
+          const displayOrderValue = String(caseIndex);
           let hasNameNode = false;
           let hasLatinNode = false;
           let hasDisplayOrderNode = false;
@@ -6509,6 +6506,37 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                 `${sanitizeTagName(key)}="${escapeXml(String(attrs[key] ?? ""))}"`
             )
             .join(" ");
+        }
+
+        function stripLatin9Key(attrs) {
+          if (!attrs || typeof attrs !== "object") {
+            return {};
+          }
+          const next = { ...attrs };
+          delete next.NameLatin9Key;
+          return next;
+        }
+
+        function normalizePointCoordinate(value) {
+          if (typeof value === "number" && Number.isFinite(value)) {
+            return String(Math.trunc(value));
+          }
+          const parsed = Number.parseFloat(value);
+          if (Number.isFinite(parsed)) {
+            return String(Math.trunc(parsed));
+          }
+          return typeof value === "string" ? value.trim() : String(value ?? "");
+        }
+
+        function sanitizePointAttributes(point) {
+          const attrs = { ...(point || {}) };
+          if (Object.prototype.hasOwnProperty.call(attrs, "X")) {
+            attrs.X = normalizePointCoordinate(attrs.X);
+          }
+          if (Object.prototype.hasOwnProperty.call(attrs, "Y")) {
+            attrs.Y = normalizePointCoordinate(attrs.Y);
+          }
+          return attrs;
         }
 
         function getAttributeOrder(tag) {
