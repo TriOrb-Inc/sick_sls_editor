@@ -2107,11 +2107,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const baseName = prefix || attributes.Name || buildCaseName(caseIndex);
           attributes.Name = `${baseName} ${displayIndex}`.trim();
           attributes.DisplayOrder = String(caseIndex);
-          if (attributes.NameLatin9Key) {
-            attributes.NameLatin9Key = `${attributes.NameLatin9Key}_${displayIndex}`;
-          } else {
-            attributes.NameLatin9Key = `_CASE_${String(displayIndex).padStart(3, "0")}`;
-          }
+          delete attributes.NameLatin9Key;
           const staticInputSource = Array.isArray(staticInputsOverride)
             ? staticInputsOverride
             : Array.isArray(baseCase.staticInputs)
@@ -4794,7 +4790,6 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         function createDefaultCasetableCase(index = 0) {
           const attributes = {
             Name: buildCaseName(index),
-            NameLatin9Key: `_CASE_${String(index + 1).padStart(3, "0")}`,
             DisplayOrder: String(index),
           };
           const staticInputs = normalizeStaticInputs();
@@ -6148,13 +6143,8 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
             caseData.attributes?.Name ??
             extractCaseNodeText(caseData, "Name") ??
             buildCaseName(caseIndex);
-          const latin9Value =
-            caseData.attributes?.NameLatin9Key ??
-            extractCaseNodeText(caseData, "NameLatin9Key") ??
-            "";
           const displayOrderValue = String(caseIndex);
           let hasNameNode = false;
-          let hasLatinNode = false;
           let hasDisplayOrderNode = false;
           layout.forEach((segment) => {
             if (segment.kind === "node" && segment.node) {
@@ -6164,10 +6154,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                   ...buildSimpleTextNodeLines("Name", caseNameValue, indentLevel + 1)
                 );
               } else if (segment.node.tag === "NameLatin9Key") {
-                hasLatinNode = true;
-                childLines.push(
-                  ...buildSimpleTextNodeLines("NameLatin9Key", latin9Value, indentLevel + 1)
-                );
+                return;
               } else if (segment.node.tag === "DisplayOrder") {
                 hasDisplayOrderNode = true;
                 childLines.push(
@@ -6218,11 +6205,6 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           const leadingNodes = [];
           if (!hasNameNode) {
             leadingNodes.push(...buildSimpleTextNodeLines("Name", caseNameValue, indentLevel + 1));
-          }
-          if (!hasLatinNode) {
-            leadingNodes.push(
-              ...buildSimpleTextNodeLines("NameLatin9Key", latin9Value, indentLevel + 1)
-            );
           }
           if (!hasDisplayOrderNode) {
             leadingNodes.push(
@@ -6531,7 +6513,6 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           const fieldsetNodes = Array.isArray(fieldsets)
             ? fieldsets.map((fieldset, fieldsetIndex) => {
                 const attrs = fieldset?.attributes || {};
-                const latinKey = attrs.NameLatin9Key || "";
                 return {
                   tag: "UserFieldset",
                   attributes: { Id: String(fieldsetIndex + 1) },
@@ -6539,7 +6520,6 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                   children: [
                     { tag: "Index", attributes: {}, text: String(fieldsetIndex), children: [] },
                     { tag: "Name", attributes: {}, text: attrs.Name || `Fieldset ${fieldsetIndex + 1}`, children: [] },
-                    { tag: "NameLatin9Key", attributes: {}, text: latinKey, children: [] },
                     {
                       tag: "UserFields",
                       attributes: {},
@@ -6742,7 +6722,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
             case "Casetable":
               return ["Index", "Name", "CaseTableType"];
             case "Case":
-              return ["Id", "DisplayOrder", "Name", "NameLatin9Key"];
+              return ["Id", "DisplayOrder", "Name"];
             case "Eval":
               return ["Id"];
             case "Evals":
@@ -7460,6 +7440,7 @@ function parsePolygonTrace(doc) {
           Array.from(caseElement.attributes || []).forEach((attr) => {
             attrs[attr.name] = attr.value;
           });
+          delete attrs.NameLatin9Key;
           const entry = {
             attributes: attrs,
             static_inputs: [],
@@ -7483,10 +7464,10 @@ function parsePolygonTrace(doc) {
             } else {
               if (child.tagName === "Name") {
                 entry.attributes.Name = child.textContent?.trim() || entry.attributes.Name;
-              } else if (child.tagName === "NameLatin9Key") {
-                entry.attributes.NameLatin9Key = child.textContent?.trim() || entry.attributes.NameLatin9Key;
               } else if (child.tagName === "DisplayOrder") {
                 entry.attributes.DisplayOrder = child.textContent?.trim() || entry.attributes.DisplayOrder;
+              } else if (child.tagName === "NameLatin9Key") {
+                return;
               }
               if (!entry.static_inputs_placement && child.tagName === "Activation") {
                 const activationStaticInputs = child.querySelector(":scope > StaticInputs");
