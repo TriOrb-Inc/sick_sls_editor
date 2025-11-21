@@ -203,6 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const plotNode = document.getElementById("plot");
         const statusText = document.getElementById("status-text");
         const fileInput = document.getElementById("file-input");
+        const svgFileInput = document.getElementById("svg-file-input");
         const plotWrapper = document.querySelector(".plot-wrapper");
         const scanPlanesContainer = document.getElementById("scanplanes-editor");
         const addScanPlaneBtn = document.getElementById("btn-add-scanplane");
@@ -6974,6 +6975,155 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           return buildAttributeString(attrs, order);
         }
 
+        function parseSvgPoints(pointsAttr) {
+          const tokens = (pointsAttr || "")
+            .trim()
+            .replace(/,/g, " ")
+            .split(/\s+/)
+            .filter(Boolean);
+          const points = [];
+          for (let i = 0; i + 1 < tokens.length; i += 2) {
+            points.push({ X: tokens[i], Y: tokens[i + 1] });
+          }
+          return points;
+        }
+
+        function extractRotationFromTransform(transformText) {
+          if (!transformText) {
+            return "0";
+          }
+          const match = /rotate\(\s*([-+]?\d*\.?\d+)/i.exec(transformText);
+          if (match && match[1]) {
+            return match[1];
+          }
+          return "0";
+        }
+
+        function parseSvgToShapes(svgText) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(svgText, "image/svg+xml");
+          if (doc.querySelector("parsererror")) {
+            throw new Error("SVG の解析に失敗しました。");
+          }
+          const svgRoot = doc.querySelector("svg");
+          if (!svgRoot) {
+            throw new Error("SVG ルート要素が見つかりませんでした。");
+          }
+          const unsupportedTags = new Set();
+          const ignoreTags = new Set(["svg", "g", "defs", "title", "desc", "metadata", "style", "clippath"]);
+          const shapes = [];
+          let polygonCount = 0;
+          let rectangleCount = 0;
+          let circleCount = 0;
+          svgRoot.querySelectorAll("*").forEach((node) => {
+            const tag = node.tagName.toLowerCase();
+            if (ignoreTags.has(tag)) {
+              return;
+            }
+            if (tag === "polygon") {
+              const points = parseSvgPoints(node.getAttribute("points"));
+              if (points.length < 3) {
+                return;
+              }
+              polygonCount += 1;
+              shapes.push({
+                type: "Polygon",
+                polygon: { points },
+                id: node.getAttribute("id") || undefined,
+                name:
+                  node.getAttribute("id") ||
+                  node.getAttribute("name") ||
+                  node.getAttribute("inkscape:label") ||
+                  `SVG Polygon ${polygonCount}`,
+              });
+              return;
+            }
+            if (tag === "rect") {
+              rectangleCount += 1;
+              shapes.push({
+                type: "Rectangle",
+                rectangle: {
+                  OriginX: node.getAttribute("x") || "0",
+                  OriginY: node.getAttribute("y") || "0",
+                  Width: node.getAttribute("width") || "0",
+                  Height: node.getAttribute("height") || "0",
+                  Rotation: extractRotationFromTransform(node.getAttribute("transform")),
+                },
+                id: node.getAttribute("id") || undefined,
+                name:
+                  node.getAttribute("id") ||
+                  node.getAttribute("name") ||
+                  node.getAttribute("inkscape:label") ||
+                  `SVG Rectangle ${rectangleCount}`,
+              });
+              return;
+            }
+            if (tag === "circle") {
+              circleCount += 1;
+              shapes.push({
+                type: "Circle",
+                circle: {
+                  CenterX: node.getAttribute("cx") || "0",
+                  CenterY: node.getAttribute("cy") || "0",
+                  Radius: node.getAttribute("r") || "0",
+                },
+                id: node.getAttribute("id") || undefined,
+                name:
+                  node.getAttribute("id") ||
+                  node.getAttribute("name") ||
+                  node.getAttribute("inkscape:label") ||
+                  `SVG Circle ${circleCount}`,
+              });
+              return;
+            }
+            unsupportedTags.add(node.tagName);
+          });
+          return { shapes, warnings: Array.from(unsupportedTags) };
+        }
+
+        function normalizeSvgShapeEntry(entry, index) {
+          const shapeType = entry.type || "Polygon";
+          const shape = createDefaultTriOrbShape(triorbShapes.length + index, shapeType);
+          shape.id = entry.id || shape.id || createShapeId();
+          shape.name = entry.name || `SVG ${shapeType} ${index + 1}`;
+          shape.fieldtype = "ProtectiveSafeBlanking";
+          shape.kind = "Field";
+          shape.type = shapeType;
+          if (shapeType === "Polygon" && entry.polygon) {
+            shape.polygon = {
+              Type: "Field",
+              points: entry.polygon.points || [],
+            };
+          } else if (shapeType === "Rectangle" && entry.rectangle) {
+            shape.rectangle = {
+              ...shape.rectangle,
+              ...entry.rectangle,
+              Type: "Field",
+            };
+          } else if (shapeType === "Circle" && entry.circle) {
+            shape.circle = {
+              ...shape.circle,
+              ...entry.circle,
+              Type: "Field",
+            };
+          }
+          applyShapeKind(shape, "Field");
+          return shape;
+        }
+
+        function addSvgShapesToState(entries = []) {
+          if (!Array.isArray(entries) || !entries.length) {
+            return 0;
+          }
+          const normalizedShapes = entries.map((entry, index) => normalizeSvgShapeEntry(entry, index));
+          normalizedShapes.forEach((shape) => {
+            triorbShapes.push(shape);
+            registerTriOrbShapeInRegistry(shape, triorbShapes.length - 1);
+          });
+          invalidateTriOrbShapeCaches();
+          return normalizedShapes.length;
+        }
+
         function parseXmlToFigure(xmlText) {
           const parser = new DOMParser();
           let doc = parser.parseFromString(xmlText, "application/xml");
@@ -10425,6 +10575,47 @@ function parsePolygonTrace(doc) {
           };
           reader.readAsText(file, "utf-8");
         });
+
+        if (svgFileInput) {
+          svgFileInput.addEventListener("change", (event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const { shapes, warnings } = parseSvgToShapes(reader.result || "");
+                if (!shapes.length) {
+                  setStatus(
+                    `${file.name} に取り込める Polygon / Rectangle / Circle が見つかりませんでした。`,
+                    "warning"
+                  );
+                  return;
+                }
+                const importedCount = addSvgShapesToState(shapes);
+                renderTriOrbShapes();
+                renderTriOrbShapeCheckboxes();
+                renderFieldsets();
+                renderFigure();
+                if (warnings.length) {
+                  alert(`未対応の SVG 要素: ${warnings.join(", ")}`);
+                }
+                const warningSuffix = warnings.length ? `（未対応: ${warnings.join(", ")}）` : "";
+                setStatus(
+                  `${file.name} から ${importedCount} 件の Shape をインポートしました${warningSuffix}。`,
+                  warnings.length ? "warning" : "ok"
+                );
+              } catch (error) {
+                console.error(error);
+                setStatus(error.message || "SVG の読み込みに失敗しました。", "error");
+              } finally {
+                svgFileInput.value = "";
+              }
+            };
+            reader.readAsText(file, "utf-8");
+          });
+        }
 
         window.addEventListener("resize", () => {
           syncPlotSize();
