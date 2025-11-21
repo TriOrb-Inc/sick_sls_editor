@@ -6975,18 +6975,132 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           return buildAttributeString(attrs, order);
         }
 
-        function parseSvgPoints(pointsAttr) {
-          const tokens = (pointsAttr || "")
-            .trim()
-            .replace(/,/g, " ")
-            .split(/\s+/)
-            .filter(Boolean);
-          const points = [];
-          for (let i = 0; i + 1 < tokens.length; i += 2) {
-            points.push({ X: tokens[i], Y: tokens[i + 1] });
+          function parseSvgPoints(pointsAttr) {
+            const tokens = (pointsAttr || "")
+              .trim()
+              .replace(/,/g, " ")
+              .split(/\s+/)
+              .filter(Boolean);
+            const points = [];
+            for (let i = 0; i + 1 < tokens.length; i += 2) {
+              points.push({ X: tokens[i], Y: tokens[i + 1] });
+            }
+            return points;
           }
-          return points;
-        }
+
+          function parseSvgPathToPolygons(d = "") {
+            const tokens = [];
+            const pathWarnings = new Set();
+            const regex = /([MLHVZmlhvz])|([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)/g;
+            let match;
+            while ((match = regex.exec(d)) !== null) {
+              tokens.push(match[0]);
+            }
+
+            const isCommand = (token) => /[MLHVZmlhvz]/.test(token);
+            const toNumber = (value) => {
+              const parsed = Number.parseFloat(value);
+              return Number.isFinite(parsed) ? parsed : null;
+            };
+
+            let index = 0;
+            let command = null;
+            let current = { x: 0, y: 0 };
+            let subpathStart = { x: 0, y: 0 };
+            let points = [];
+            const polygons = [];
+
+            const pushSubpath = () => {
+              if (points.length) {
+                const closedPoints = [...points];
+                const first = closedPoints[0];
+                const last = closedPoints[closedPoints.length - 1];
+                if (first && (first.X !== last.X || first.Y !== last.Y)) {
+                  closedPoints.push({ ...first });
+                }
+                polygons.push(closedPoints);
+                points = [];
+              }
+            };
+
+            while (index < tokens.length) {
+              const token = tokens[index];
+              if (isCommand(token)) {
+                command = token;
+                index += 1;
+                if (command === "Z" || command === "z") {
+                  pushSubpath();
+                  current = { ...subpathStart };
+                }
+                continue;
+              }
+              if (!command) {
+                index += 1;
+                continue;
+              }
+              if (command === "M" || command === "m") {
+                const xValue = toNumber(tokens[index]);
+                const yValue = toNumber(tokens[index + 1]);
+                if (xValue === null || yValue === null) {
+                  break;
+                }
+                index += 2;
+                const targetX = command === "m" ? current.x + xValue : xValue;
+                const targetY = command === "m" ? current.y + yValue : yValue;
+                pushSubpath();
+                const point = { X: String(targetX), Y: String(targetY) };
+                points.push(point);
+                current = { x: targetX, y: targetY };
+                subpathStart = { ...current };
+                command = command === "m" ? "l" : "L";
+                continue;
+              }
+              if (command === "L" || command === "l") {
+                const xValue = toNumber(tokens[index]);
+                const yValue = toNumber(tokens[index + 1]);
+                if (xValue === null || yValue === null) {
+                  break;
+                }
+                index += 2;
+                const targetX = command === "l" ? current.x + xValue : xValue;
+                const targetY = command === "l" ? current.y + yValue : yValue;
+                const point = { X: String(targetX), Y: String(targetY) };
+                points.push(point);
+                current = { x: targetX, y: targetY };
+                continue;
+              }
+              if (command === "H" || command === "h") {
+                const xValue = toNumber(tokens[index]);
+                if (xValue === null) {
+                  break;
+                }
+                index += 1;
+                const targetX = command === "h" ? current.x + xValue : xValue;
+                const point = { X: String(targetX), Y: String(current.y) };
+                points.push(point);
+                current = { x: targetX, y: current.y };
+                continue;
+              }
+              if (command === "V" || command === "v") {
+                const yValue = toNumber(tokens[index]);
+                if (yValue === null) {
+                  break;
+                }
+                index += 1;
+                const targetY = command === "v" ? current.y + yValue : yValue;
+                const point = { X: String(current.x), Y: String(targetY) };
+                points.push(point);
+                current = { x: current.x, y: targetY };
+                continue;
+              }
+              pathWarnings.add(`path (${command})`);
+              index += 1;
+            }
+
+            pushSubpath();
+            const validPolygons = polygons.filter((polygon) => polygon.length >= 3);
+            return { polygons: validPolygons, warnings: Array.from(pathWarnings) };
+          }
 
         function extractRotationFromTransform(transformText) {
           if (!transformText) {
@@ -7073,6 +7187,34 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                   node.getAttribute("name") ||
                   node.getAttribute("inkscape:label") ||
                   `SVG Circle ${circleCount}`,
+              });
+              return;
+            }
+            if (tag === "path") {
+              const pathData = node.getAttribute("d") || "";
+              const { polygons, warnings: pathWarnings } = parseSvgPathToPolygons(pathData);
+              pathWarnings.forEach((warning) => unsupportedTags.add(warning));
+              if (!polygons.length) {
+                return;
+              }
+              const baseName =
+                node.getAttribute("id") ||
+                node.getAttribute("name") ||
+                node.getAttribute("inkscape:label") ||
+                "SVG Path";
+              const rawId = node.getAttribute("id") || "";
+              polygons.forEach((points, polygonIndex) => {
+                polygonCount += 1;
+                const nameSuffix = polygons.length > 1 ? ` (${polygonIndex + 1})` : "";
+                const shapeName =
+                  baseName === "SVG Path" ? `SVG Path ${polygonCount}${nameSuffix}` : `${baseName}${nameSuffix}`;
+                const shapeId = rawId ? `${rawId}${polygons.length > 1 ? `-${polygonIndex + 1}` : ""}` : undefined;
+                shapes.push({
+                  type: "Polygon",
+                  polygon: { points },
+                  id: shapeId,
+                  name: shapeName,
+                });
               });
               return;
             }
