@@ -7197,24 +7197,24 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
               if (!polygons.length) {
                 return;
               }
+              const primaryPolygon = polygons[0];
+              if (polygons.length > 1) {
+                unsupportedTags.add("path (multiple subpaths collapsed)");
+              }
               const baseName =
                 node.getAttribute("id") ||
                 node.getAttribute("name") ||
                 node.getAttribute("inkscape:label") ||
                 "SVG Path";
               const rawId = node.getAttribute("id") || "";
-              polygons.forEach((points, polygonIndex) => {
-                polygonCount += 1;
-                const nameSuffix = polygons.length > 1 ? ` (${polygonIndex + 1})` : "";
-                const shapeName =
-                  baseName === "SVG Path" ? `SVG Path ${polygonCount}${nameSuffix}` : `${baseName}${nameSuffix}`;
-                const shapeId = rawId ? `${rawId}${polygons.length > 1 ? `-${polygonIndex + 1}` : ""}` : undefined;
-                shapes.push({
-                  type: "Polygon",
-                  polygon: { points },
-                  id: shapeId,
-                  name: shapeName,
-                });
+              polygonCount += 1;
+              const shapeName = baseName === "SVG Path" ? `SVG Path ${polygonCount}` : baseName;
+              const shapeId = rawId || undefined;
+              shapes.push({
+                type: "Polygon",
+                polygon: { points: primaryPolygon },
+                id: shapeId,
+                name: shapeName,
               });
               return;
             }
