@@ -7290,6 +7290,15 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           return candidate;
         }
 
+        function ensureUniqueShapeId(baseId, usedIds) {
+          let candidate = baseId || createShapeId();
+          while (usedIds.has(candidate)) {
+            candidate = createShapeId();
+          }
+          usedIds.add(candidate);
+          return candidate;
+        }
+
           function normalizeSvgShapeEntry(entry, index) {
             const shapeType = entry.type || "Polygon";
             const shape = createDefaultTriOrbShape(triorbShapes.length + index, shapeType);
@@ -7327,9 +7336,11 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
             return 0;
           }
           const usedNames = new Set(triorbShapes.map((shape) => shape.name).filter(Boolean));
+          const usedIds = new Set(triorbShapes.map((shape) => shape.id).filter(Boolean));
           const normalizedShapes = entries.map((entry, index) => {
             const shape = normalizeSvgShapeEntry(entry, index);
             shape.name = ensureUniqueShapeName(shape.name, usedNames);
+            shape.id = ensureUniqueShapeId(shape.id, usedIds);
             return shape;
           });
           normalizedShapes.forEach((shape) => {
