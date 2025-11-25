@@ -7018,6 +7018,18 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           return buildAttributeString(attrs, order);
         }
 
+          function invertSvgNumber(value) {
+            const num = Number.parseFloat(value);
+            return Number.isFinite(num) ? String(-num) : value;
+          }
+
+          function invertSvgPoints(points = []) {
+            return points.map((point) => ({
+              ...point,
+              Y: invertSvgNumber(point.Y),
+            }));
+          }
+
           function parseSvgPoints(pointsAttr) {
             const tokens = (pointsAttr || "")
               .trim()
@@ -7266,32 +7278,34 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           return { shapes, warnings: Array.from(unsupportedTags) };
         }
 
-        function normalizeSvgShapeEntry(entry, index) {
-          const shapeType = entry.type || "Polygon";
-          const shape = createDefaultTriOrbShape(triorbShapes.length + index, shapeType);
-          shape.id = entry.id || shape.id || createShapeId();
-          shape.name = entry.name || `SVG ${shapeType} ${index + 1}`;
-          shape.fieldtype = "ProtectiveSafeBlanking";
-          shape.kind = "Field";
-          shape.type = shapeType;
-          if (shapeType === "Polygon" && entry.polygon) {
-            shape.polygon = {
-              Type: "Field",
-              points: entry.polygon.points || [],
-            };
-          } else if (shapeType === "Rectangle" && entry.rectangle) {
-            shape.rectangle = {
-              ...shape.rectangle,
-              ...entry.rectangle,
-              Type: "Field",
-            };
-          } else if (shapeType === "Circle" && entry.circle) {
-            shape.circle = {
-              ...shape.circle,
-              ...entry.circle,
-              Type: "Field",
-            };
-          }
+          function normalizeSvgShapeEntry(entry, index) {
+            const shapeType = entry.type || "Polygon";
+            const shape = createDefaultTriOrbShape(triorbShapes.length + index, shapeType);
+            shape.id = entry.id || shape.id || createShapeId();
+            shape.name = entry.name || `SVG ${shapeType} ${index + 1}`;
+            shape.fieldtype = "ProtectiveSafeBlanking";
+            shape.kind = "Field";
+            shape.type = shapeType;
+            if (shapeType === "Polygon" && entry.polygon) {
+              shape.polygon = {
+                Type: "Field",
+                points: invertSvgPoints(entry.polygon.points || []),
+              };
+            } else if (shapeType === "Rectangle" && entry.rectangle) {
+              shape.rectangle = {
+                ...shape.rectangle,
+                ...entry.rectangle,
+                OriginY: invertSvgNumber(entry.rectangle?.OriginY),
+                Type: "Field",
+              };
+            } else if (shapeType === "Circle" && entry.circle) {
+              shape.circle = {
+                ...shape.circle,
+                ...entry.circle,
+                CenterY: invertSvgNumber(entry.circle?.CenterY),
+                Type: "Field",
+              };
+            }
           applyShapeKind(shape, "Field");
           return shape;
         }
