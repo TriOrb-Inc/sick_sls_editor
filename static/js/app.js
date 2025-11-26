@@ -5069,6 +5069,30 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return { html: unknownOption + optionHtml, selectedValue: value };
         }
 
+        function refreshEvalUserFieldOptions(selectElement) {
+          if (!selectElement) {
+            return;
+          }
+          const previousValue = selectElement.value;
+          const { html, selectedValue } = buildEvalUserFieldOptionsHtml(previousValue);
+          if (selectElement.innerHTML === html && previousValue === selectedValue) {
+            return;
+          }
+          selectElement.innerHTML = html;
+          selectElement.value = selectedValue;
+          const evalIndex = Number(selectElement.dataset.evalIndex);
+          const caseIndex = Number(selectElement.dataset.caseIndex);
+          if (!Number.isFinite(evalIndex) || !Number.isFinite(caseIndex)) {
+            applyEvalUserFieldValidation();
+            return;
+          }
+          if (previousValue !== selectedValue) {
+            updateEvalUserFieldId(evalIndex, caseIndex, selectedValue);
+            refreshCaseFieldAssignments({ rerenderCaseToggles: true });
+          }
+          applyEvalUserFieldValidation();
+        }
+
         function normalizeEvalReset(entry) {
           return {
             resetType: entry?.resetType ?? "NoReset",
@@ -8704,6 +8728,20 @@ function parsePolygonTrace(doc) {
         }
 
         if (casetableEvalsContainer) {
+          casetableEvalsContainer.addEventListener("pointerdown", (event) => {
+            const target = event.target;
+            if (target.classList.contains("eval-userfield-input")) {
+              refreshEvalUserFieldOptions(target);
+            }
+          });
+
+          casetableEvalsContainer.addEventListener("focusin", (event) => {
+            const target = event.target;
+            if (target.classList.contains("eval-userfield-input")) {
+              refreshEvalUserFieldOptions(target);
+            }
+          });
+
           casetableEvalsContainer.addEventListener("input", (event) => {
             const target = event.target;
             if (target.classList.contains("eval-attr-input")) {
