@@ -6702,26 +6702,52 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           const shapeIdLookup = buildShapeIdLookup();
           const seenIds = new Set();
           let counter = 1;
+
+          const reserveId = (rawId) => {
+            const id = String(rawId);
+            if (!id || seenIds.has(id)) {
+              return null;
+            }
+            seenIds.add(id);
+            const numericId = Number.parseInt(id, 10);
+            counter = Number.isFinite(numericId)
+              ? Math.max(counter, numericId + 1)
+              : counter + 1;
+            return id;
+          };
+
+          const allocateId = (...candidates) => {
+            for (const candidate of candidates) {
+              if (candidate === null || typeof candidate === "undefined") {
+                continue;
+              }
+              const id = reserveId(candidate);
+              if (id !== null) {
+                return id;
+              }
+            }
+            while (seenIds.has(String(counter))) {
+              counter += 1;
+            }
+            const fallbackId = reserveId(counter);
+            return fallbackId ?? "";
+          };
+
           if (Array.isArray(fieldsets)) {
             fieldsets.forEach((fieldset, fieldsetIndex) => {
               const fields = Array.isArray(fieldset?.fields) ? fieldset.fields : [];
               fields.forEach((field, fieldIndex) => {
-                const explicitId =
-                  field?.attributes?.UserFieldId ?? field?.attributes?.Id ?? null;
+                const attributes = field?.attributes || {};
+                const explicitId = attributes.UserFieldId ?? attributes.Id ?? null;
                 const primaryShapeId = findPrimaryShapeIdForField(field);
                 const shapeIndex = shapeIdLookup.get(String(primaryShapeId)) || null;
-                let id = explicitId ?? shapeIndex ?? counter;
-                const numericId = Number.parseInt(id, 10);
-                if (Number.isFinite(numericId)) {
-                  counter = Math.max(counter, numericId + 1);
-                } else {
-                  counter += 1;
-                }
-                id = String(id);
-                if (seenIds.has(id)) {
+                const id = allocateId(explicitId, shapeIndex);
+                if (!id) {
                   return;
                 }
-                seenIds.add(id);
+                if (attributes.UserFieldId !== id) {
+                  field.attributes = { ...attributes, UserFieldId: id };
+                }
                 entries.push({
                   id,
                   fieldsetIndex,
