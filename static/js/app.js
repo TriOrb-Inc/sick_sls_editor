@@ -4924,6 +4924,57 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return `Case ${index + 1}`;
         }
 
+        function createSimpleTextNode(tag, text = "") {
+          return { tag, attributes: {}, text, children: [] };
+        }
+
+        function createDefaultFollowingCasesNode() {
+          return {
+            tag: "FollowingCases",
+            attributes: {},
+            text: "",
+            children: [
+              {
+                tag: "FollowingCase",
+                attributes: {},
+                text: "",
+                children: [createSimpleTextNode("CaseIndex", "-1")],
+              },
+              {
+                tag: "FollowingCase",
+                attributes: {},
+                text: "",
+                children: [createSimpleTextNode("CaseIndex", "-1")],
+              },
+            ],
+          };
+        }
+
+        function createDefaultActivationNode(caseIndex) {
+          return {
+            tag: "Activation",
+            attributes: {},
+            text: "",
+            children: [
+              { tag: "StaticInputs", attributes: {}, text: "", children: [] },
+              createSimpleTextNode("StaticInputs1ofNIndex", "-1"),
+              { tag: "SpeedActivation", attributes: {}, text: "", children: [] },
+              createSimpleTextNode("MinSpeed", "0"),
+              createSimpleTextNode("MaxSpeed", "0"),
+              createSimpleTextNode("CaseNumber", String(caseIndex + 1)),
+              createDefaultFollowingCasesNode(),
+              createSimpleTextNode("SingleStepSequencePos", "-1"),
+            ],
+          };
+        }
+
+        function buildDefaultCaseLayout(caseIndex) {
+          return [
+            { kind: "node", node: createSimpleTextNode("SleepMode", "false") },
+            { kind: "node", node: createDefaultActivationNode(caseIndex) },
+          ];
+        }
+
         function createDefaultCasetableCase(index = 0) {
           const attributes = {
             Name: buildCaseName(index),
@@ -4934,16 +4985,21 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             attributes: { Mode: "Off" },
             mode_key: "Mode",
           });
-          const layout = normalizeCaseLayout(null, staticInputs, speedActivation, {
-            staticInputs: "case",
-            speedActivation: "case",
-          });
+          const layout = normalizeCaseLayout(
+            buildDefaultCaseLayout(index),
+            staticInputs,
+            speedActivation,
+            {
+              staticInputs: "activation",
+              speedActivation: "activation",
+            }
+          );
           return {
             attributes,
             staticInputs,
-            staticInputsPlacement: "case",
+            staticInputsPlacement: "activation",
             speedActivation,
-            speedActivationPlacement: "case",
+            speedActivationPlacement: "activation",
             activationMinSpeed: "0",
             activationMaxSpeed: "0",
             layout,
