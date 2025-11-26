@@ -5909,11 +5909,17 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           fieldsetGlobalGeometry[key] = value;
         }
 
-function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAttrs = null } = {}) {
+function buildBaseSdImportExportLines({
+          scanDeviceAttrs = null,
+          fieldsetDeviceAttrs = null,
+          includeUserFieldIds = true,
+        } = {}) {
           const figure = currentFigure || defaultFigure;
           const fileInfoLines = buildFileInfoLines();
           const scanPlaneLines = buildScanPlanesXml(scanDeviceAttrs);
-          const fieldsetLines = buildFieldsetsXml(fieldsetDeviceAttrs);
+          const fieldsetLines = buildFieldsetsXml(fieldsetDeviceAttrs, {
+            includeUserFieldIds,
+          });
           const casetableLines = buildCasetablesXml();
           const rootAttrOverrides = {
             ...rootAttributes,
@@ -5944,7 +5950,9 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
         }
 
         function buildLegacyXml() {
-          const lines = buildBaseSdImportExportLines();
+          const lines = buildBaseSdImportExportLines({
+            includeUserFieldIds: false,
+          });
           return lines.join("\n");
         }
 
@@ -6084,7 +6092,7 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
           return merged;
         }
 
-        function buildFieldsetsXml(fieldsetDeviceAttrs = null) {
+        function buildFieldsetsXml(fieldsetDeviceAttrs = null, { includeUserFieldIds = true } = {}) {
           const lines = [];
           lines.push('    <ScanPlane Index="0">');
 
@@ -6184,8 +6192,15 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                     return;
                   }
 
+                  const fieldAttributes = includeUserFieldIds
+                    ? field.attributes
+                    : (() => {
+                        const attrs = { ...(field.attributes || {}) };
+                        delete attrs.UserFieldId;
+                        return attrs;
+                      })();
                   const fieldAttrs = buildAttributeString(
-                    field.attributes,
+                    fieldAttributes,
                     getAttributeOrder("Field")
                   );
                   lines.push(`          <Field${fieldAttrs ? " " + fieldAttrs : ""}>`);
@@ -10184,6 +10199,7 @@ function parsePolygonTrace(doc) {
               const xmlLines = buildBaseSdImportExportLines({
                 scanDeviceAttrs: scanAttrs,
                 fieldsetDeviceAttrs: device.attributes,
+                includeUserFieldIds: false,
               });
               const xml = xmlLines.join("\n");
               const prefix = formatDeviceFilePrefix(device.attributes, index);
