@@ -6706,16 +6706,24 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
             fieldsets.forEach((fieldset, fieldsetIndex) => {
               const fields = Array.isArray(fieldset?.fields) ? fieldset.fields : [];
               fields.forEach((field, fieldIndex) => {
+                const explicitId =
+                  field?.attributes?.UserFieldId ?? field?.attributes?.Id ?? null;
                 const primaryShapeId = findPrimaryShapeIdForField(field);
                 const shapeIndex = shapeIdLookup.get(String(primaryShapeId)) || null;
-                const id = shapeIndex ?? counter;
-                counter = Math.max(counter, id + 1);
+                let id = explicitId ?? shapeIndex ?? counter;
+                const numericId = Number.parseInt(id, 10);
+                if (Number.isFinite(numericId)) {
+                  counter = Math.max(counter, numericId + 1);
+                } else {
+                  counter += 1;
+                }
+                id = String(id);
                 if (seenIds.has(id)) {
                   return;
                 }
                 seenIds.add(id);
                 entries.push({
-                  id: String(id),
+                  id,
                   fieldsetIndex,
                   fieldIndex,
                   field,
@@ -6838,8 +6846,12 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
             const primaryShapeId = findPrimaryShapeIdForField(field);
             const shapeIdLookup = buildShapeIdLookup();
             const shapeIndex = shapeIdLookup.get(String(primaryShapeId)) || null;
-            const id = shapeIndex ?? counter.value;
-            counter.value = Math.max(counter.value + 1, id + 1);
+            const explicitId = attrs.UserFieldId ?? attrs.Id;
+            const id = explicitId ?? shapeIndex ?? counter.value;
+            const numericId = Number.parseInt(id, 10);
+            counter.value = Number.isFinite(numericId)
+              ? Math.max(counter.value, numericId + 1)
+              : counter.value + 1;
             const fieldName = attrs.Name || `Field ${fieldIndex + 1}`;
             const fieldType = attrs.Fieldtype || "ProtectiveSafeBlanking";
             const multipleSampling = attrs.MultipleSampling || String(globalMultipleSampling || "2");
@@ -8293,6 +8305,53 @@ function parsePolygonTrace(doc) {
           return { attributes, evals };
         }
 
+        function applyFieldsConfigurationUserFieldIds(fieldsConfigurationElement) {
+          if (!fieldsConfigurationElement || !Array.isArray(fieldsets)) {
+            return;
+          }
+          const scanPlaneNodes = Array.from(
+            fieldsConfigurationElement.querySelectorAll(":scope > ScanPlanes > ScanPlane")
+          );
+          scanPlaneNodes.forEach((scanPlaneNode) => {
+            const userFieldsetNodes = Array.from(
+              scanPlaneNode.querySelectorAll(":scope > UserFieldsets > UserFieldset")
+            );
+            userFieldsetNodes.forEach((fieldsetNode) => {
+              const fieldsetIndexNode = fieldsetNode.querySelector(":scope > Index");
+              const fieldsetIndex = Number.parseInt(fieldsetIndexNode?.textContent ?? "", 10);
+              if (
+                !Number.isInteger(fieldsetIndex) ||
+                fieldsetIndex < 0 ||
+                fieldsetIndex >= fieldsets.length
+              ) {
+                return;
+              }
+              const targetFieldset = fieldsets[fieldsetIndex];
+              const userFieldNodes = Array.from(
+                fieldsetNode.querySelectorAll(":scope > UserFields > UserField")
+              );
+              userFieldNodes.forEach((userFieldNode) => {
+                const idAttr = userFieldNode.getAttribute("Id");
+                if (!idAttr) {
+                  return;
+                }
+                const fieldIndexNode = userFieldNode.querySelector(":scope > Index");
+                const fieldIndex = Number.parseInt(fieldIndexNode?.textContent ?? "", 10);
+                if (
+                  !Number.isInteger(fieldIndex) ||
+                  fieldIndex < 0 ||
+                  fieldIndex >= targetFieldset.fields.length
+                ) {
+                  return;
+                }
+                const targetField = targetFieldset.fields[fieldIndex];
+                targetField.attributes = targetField.attributes || {};
+                targetField.attributes.UserFieldId = idAttr;
+              });
+            });
+          });
+        }
+
         function populateCasetablesFromDoc(doc) {
           const casetableNodes = Array.from(
             doc.querySelectorAll("Export_CasetablesAndCases > Casetable")
@@ -8314,6 +8373,10 @@ function parsePolygonTrace(doc) {
             renderCasetableFieldsConfiguration();
             return;
           }
+          const fieldsConfigurationElement = casetableNode.querySelector(
+            ":scope > FieldsConfiguration"
+          );
+          applyFieldsConfigurationUserFieldIds(fieldsConfigurationElement);
           casetableAttributes = Array.from(casetableNode.attributes || []).reduce(
             (acc, attr) => {
               acc[attr.name] = attr.value;
