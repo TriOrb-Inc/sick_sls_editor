@@ -4924,6 +4924,58 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return `Case ${index + 1}`;
         }
 
+        function createSimpleTextNode(tag, text = "") {
+          return { tag, attributes: {}, text, children: [] };
+        }
+
+        function createDefaultFollowingCasesNode() {
+          return {
+            tag: "FollowingCases",
+            attributes: {},
+            text: "",
+            children: [
+              {
+                tag: "FollowingCase",
+                attributes: {},
+                text: "",
+                children: [createSimpleTextNode("CaseIndex", "-1")],
+              },
+              {
+                tag: "FollowingCase",
+                attributes: {},
+                text: "",
+                children: [createSimpleTextNode("CaseIndex", "-1")],
+              },
+            ],
+          };
+        }
+
+        function createDefaultActivationNode(caseIndex) {
+          return {
+            tag: "Activation",
+            attributes: {},
+            text: "",
+            children: [
+              { tag: "StaticInputs", attributes: {}, text: "", children: [] },
+              createSimpleTextNode("StaticInputs1ofNIndex", "-1"),
+              { tag: "SpeedActivation", attributes: {}, text: "", children: [] },
+              createSimpleTextNode("MinSpeed", "0"),
+              createSimpleTextNode("MaxSpeed", "0"),
+              createSimpleTextNode("CaseNumber", String(caseIndex + 1)),
+              createDefaultFollowingCasesNode(),
+              createSimpleTextNode("SingleStepSequencePos", "-1"),
+            ],
+          };
+        }
+
+        function buildDefaultCaseLayout(caseIndex) {
+          return [
+            { kind: "node", node: createSimpleTextNode("SleepMode", "false") },
+            { kind: "node", node: createSimpleTextNode("DisplayOrder", String(caseIndex)) },
+            { kind: "node", node: createDefaultActivationNode(caseIndex) },
+          ];
+        }
+
         function createDefaultCasetableCase(index = 0) {
           const attributes = {
             Name: buildCaseName(index),
@@ -4934,16 +4986,21 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             attributes: { Mode: "Off" },
             mode_key: "Mode",
           });
-          const layout = normalizeCaseLayout(null, staticInputs, speedActivation, {
-            staticInputs: "case",
-            speedActivation: "case",
-          });
+          const layout = normalizeCaseLayout(
+            buildDefaultCaseLayout(index),
+            staticInputs,
+            speedActivation,
+            {
+              staticInputs: "activation",
+              speedActivation: "activation",
+            }
+          );
           return {
             attributes,
             staticInputs,
-            staticInputsPlacement: "case",
+            staticInputsPlacement: "activation",
             speedActivation,
-            speedActivationPlacement: "case",
+            speedActivationPlacement: "activation",
             activationMinSpeed: "0",
             activationMaxSpeed: "0",
             layout,
@@ -6089,19 +6146,29 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
               const mergedFields = mergeFieldsByAttributes(fieldset.fields || []);
               if (mergedFields.length) {
                 mergedFields.forEach((field) => {
+                  const hasInlineGeometry =
+                    (Array.isArray(field.polygons) && field.polygons.length > 0) ||
+                    (Array.isArray(field.circles) && field.circles.length > 0) ||
+                    (Array.isArray(field.rectangles) && field.rectangles.length > 0);
+                  const shapeRefs = Array.isArray(field.shapeRefs)
+                    ? field.shapeRefs
+                        .map((shapeRef) => findTriOrbShapeById(shapeRef.shapeId))
+                        .filter(Boolean)
+                    : [];
+
+                  if (!hasInlineGeometry && shapeRefs.length === 0) {
+                    return;
+                  }
+
                   const fieldAttrs = buildAttributeString(
                     field.attributes,
                     getAttributeOrder("Field")
                   );
                   lines.push(`          <Field${fieldAttrs ? " " + fieldAttrs : ""}>`);
-                  let wroteShape = writeInlineGeometry(field);
-                  if (!wroteShape && field.shapeRefs && field.shapeRefs.length) {
+                  let wroteShape = hasInlineGeometry ? writeInlineGeometry(field) : false;
+                  if (!wroteShape && shapeRefs.length) {
                     const orderedShapes = { Polygon: [], Circle: [], Rectangle: [] };
-                    field.shapeRefs.forEach((shapeRef) => {
-                      const shape = findTriOrbShapeById(shapeRef.shapeId);
-                      if (!shape) {
-                        return;
-                      }
+                    shapeRefs.forEach((shape) => {
                       const typeKey = shape.type === "Circle"
                         ? "Circle"
                         : shape.type === "Rectangle"
@@ -6152,9 +6219,6 @@ function buildBaseSdImportExportLines({ scanDeviceAttrs = null, fieldsetDeviceAt
                         }
                       });
                     });
-                  }
-                  if (!wroteShape) {
-                    lines.push("            <!-- No shapes assigned -->");
                   }
                   lines.push("          </Field>");
                 });
