@@ -7843,6 +7843,22 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             const triOrbNodesByLocalNameFromDoc = Array.from(
               (doc?.querySelectorAll("*") || []).values()
             ).filter((node) => node?.localName === "TriOrb_SICK_SLS_Editor");
+            const creationToolName =
+              doc?.querySelector?.("CreationToolName")?.textContent || "";
+            const creationToolVersion =
+              doc?.querySelector?.("CreationToolVersion")?.textContent || "";
+            const fileCompany = doc?.querySelector?.("Company")?.textContent || "";
+            const fileCreationTime =
+              doc?.querySelector?.("CreationTime")?.textContent || "";
+            const exportFieldsetsPresent = Boolean(
+              findFirstByTag(doc, "Export_FieldsetsAndFields")
+            );
+            const exportScanPlanesPresent = Boolean(
+              findFirstByTag(doc, "Export_ScanPlanes")
+            );
+            const exportDevicesPresent = Boolean(
+              findFirstByTag(doc, "Export_Devices")
+            );
             const countImmediateChildren = (node) =>
               Array.from(node?.children || []).reduce((acc, child) => {
                 const name = (child.tagName || child.localName || "").replace(
@@ -7929,6 +7945,13 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               nodesWithTriOrbInName,
               nodesWithTriOrbAttrs,
               docRootSnippet: doc?.documentElement?.outerHTML?.slice(0, 400),
+              creationToolName,
+              creationToolVersion,
+              fileCompany,
+              fileCreationTime,
+              exportFieldsetsPresent,
+              exportScanPlanesPresent,
+              exportDevicesPresent,
             });
           }
 
