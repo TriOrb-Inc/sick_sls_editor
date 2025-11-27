@@ -7843,6 +7843,20 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             const triOrbNodesByLocalNameFromDoc = Array.from(
               (doc?.querySelectorAll("*") || []).values()
             ).filter((node) => node?.localName === "TriOrb_SICK_SLS_Editor");
+            const countImmediateChildren = (node) =>
+              Array.from(node?.children || []).reduce((acc, child) => {
+                const name = (child.tagName || child.localName || "").replace(
+                  /^[^:]*:/,
+                  ""
+                );
+                acc[name] = (acc[name] || 0) + 1;
+                return acc;
+              }, {});
+            const topEntries = (freq) =>
+              Object.entries(freq)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 12)
+                .map(([name, count]) => `${name}:${count}`);
             const tagFrequency = Array.from(doc?.querySelectorAll("*") || []).reduce(
               (acc, node) => {
                 const name = (node.tagName || node.localName || "").replace(/^[^:]*:/, "");
@@ -7855,6 +7869,26 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               .sort((a, b) => b[1] - a[1])
               .slice(0, 12)
               .map(([name, count]) => `${name}:${count}`);
+            const docRootChildFrequency = countImmediateChildren(doc?.documentElement);
+            const triOrbWrapperChildFrequency = countImmediateChildren(
+              triOrbDoc?.documentElement
+            );
+            const docRootChildTop = topEntries(docRootChildFrequency);
+            const triOrbWrapperChildTop = topEntries(triOrbWrapperChildFrequency);
+            const docRootChildSamples = Array.from(
+              doc?.documentElement?.children || []
+            )
+              .slice(0, 6)
+              .map((child) => ({
+                tag: child.tagName || child.localName,
+                attrs: Array.from(child.attributes || [])
+                  .slice(0, 10)
+                  .reduce((acc, attr) => {
+                    acc[attr.name] = attr.value;
+                    return acc;
+                  }, {}),
+                childTagsTop: topEntries(countImmediateChildren(child)),
+              }));
             const wrapperChildren = Array.from(
               triOrbDoc?.documentElement?.children || []
             ).map((node) => node.tagName || node.localName);
@@ -7888,6 +7922,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               docRoot: doc?.documentElement?.tagName,
               wrapperChildren,
               docChildren,
+              wrapperChildTagFrequencyTop12: triOrbWrapperChildTop,
+              docRootChildTagFrequencyTop12: docRootChildTop,
+              docRootChildSamples,
               tagFrequencyTop12: topTags,
               nodesWithTriOrbInName,
               nodesWithTriOrbAttrs,
