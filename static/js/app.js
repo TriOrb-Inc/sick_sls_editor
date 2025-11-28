@@ -6090,6 +6090,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         function buildDeviceAttributeString(attrs, { keepDeviceName = false } = {}) {
           if (!attrs) return "";
           const sanitized = { ...attrs };
+          sanitized.Index = "0";
           if (!keepDeviceName) {
             delete sanitized.DeviceName;
           }
