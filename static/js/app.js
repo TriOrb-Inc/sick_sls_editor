@@ -7396,14 +7396,13 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               return { polygons: [], warnings: [] };
             }
 
-            const sampled = sampleSvgPathToPolygon(trimmed, pathWarnings);
-            if (sampled.length) {
-              return { polygons: sampled, warnings: Array.from(pathWarnings) };
+            const fallback = parseSvgPathToPolygonsLegacy(trimmed, pathWarnings);
+            if (fallback.polygons.length) {
+              return { polygons: fallback.polygons, warnings: Array.from(pathWarnings) };
             }
 
-            const fallback = parseSvgPathToPolygonsLegacy(trimmed, pathWarnings);
-            const mergedWarnings = new Set([...pathWarnings, ...fallback.warnings]);
-            return { polygons: fallback.polygons, warnings: Array.from(mergedWarnings) };
+            const sampled = sampleSvgPathToPolygon(trimmed, pathWarnings);
+            return { polygons: sampled, warnings: Array.from(pathWarnings) };
           }
 
           function sampleSvgPathToPolygon(d, pathWarnings) {
