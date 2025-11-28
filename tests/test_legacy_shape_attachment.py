@@ -5,9 +5,8 @@ from pathlib import Path
 
 import pytest
 from playwright.sync_api import sync_playwright
-from playwright._impl._errors import Error as PlaywrightError
 
-from tests.conftest import SERVER_URL
+from tests.conftest import SERVER_URL, launch_chromium
 
 
 def _capture_sick_xml(page):
@@ -43,17 +42,7 @@ def test_shape_added_to_legacy_export_is_saved(flask_server):
     assert sample_path.exists(), "テスト用レガシーXMLが見つかりません"
 
     with sync_playwright() as playwright:
-        try:
-            browser = playwright.chromium.launch(headless=True)
-        except PlaywrightError as exc:  # pragma: no cover - depends on env setup
-            message = str(exc)
-            if "Executable doesn't exist" in message or "playwright install" in message:
-                pytest.skip(
-                    "Playwright Chromium がインストールされていないためスキップ。"
-                    "CI で実行する場合は 'playwright install --with-deps chromium' を事前に実行してください。"
-                )
-            raise
-
+        browser = launch_chromium(playwright)
         try:
             page = browser.new_page()
             page.goto(SERVER_URL, wait_until="networkidle")
