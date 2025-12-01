@@ -7903,21 +7903,31 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               const shapeName = entry?.name || existing?.name || "Shape";
               const importedType = entry?.type || "Polygon";
               const existingType = existing?.type || "Polygon";
+              const safeName = escapeHtml(existing?.name || "");
               return `
-                <label class="svg-import-duplicate-item">
-                  <input type="checkbox" data-shape-name="${escapeHtml(existing?.name || "")}" checked />
+                <div class="svg-import-duplicate-item" data-shape-name="${safeName}">
+                  <div class="svg-import-duplicate-actions">
+                    <label class="svg-import-duplicate-toggle">
+                      <input type="checkbox" data-shape-name="${safeName}" data-role="import" checked />
+                      <span>Import</span>
+                    </label>
+                    <label class="svg-import-duplicate-toggle">
+                      <input type="checkbox" data-shape-name="${safeName}" data-role="overwrite" checked />
+                      <span>Overwrite</span>
+                    </label>
+                  </div>
                   <div>
                     <div class="svg-import-duplicate-name">${escapeHtml(shapeName)}</div>
                     <div class="svg-import-duplicate-desc">既存: ${escapeHtml(existingType)} / インポート: ${escapeHtml(importedType)}</div>
                   </div>
-                </label>
+                </div>
               `;
             })
             .join("");
           svgImportModal.classList.add("active");
           svgImportModal.setAttribute("aria-hidden", "false");
           setStatus(
-            `${fileName || "SVG"} のインポート: 同名の Shape が見つかりました。上書き対象を選択してください。`,
+            `${fileName || "SVG"} のインポート: 同名の Shape が見つかりました。インポート/上書きの対象を選択してください。`,
             "warning"
           );
         }
@@ -7939,20 +7949,33 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             return;
           }
           const { duplicates = [], additions = [], warnings = [], fileName = "" } = pendingSvgImportContext;
-          const overwriteNames = new Set(
-            Array.from(svgImportDuplicateList?.querySelectorAll("input[type='checkbox']") || [])
-              .filter((input) => input.checked)
-              .map((input) => input.dataset.shapeName || "")
+          const duplicateStates = new Map(
+            Array.from(svgImportDuplicateList?.querySelectorAll(".svg-import-duplicate-item") || []).map((item) => {
+              const name = item.dataset.shapeName || "";
+              const importInput = item.querySelector("input[data-role='import']");
+              const overwriteInput = item.querySelector("input[data-role='overwrite']");
+              return [
+                name,
+                {
+                  importChecked: importInput ? importInput.checked : true,
+                  overwriteChecked: overwriteInput ? overwriteInput.checked : false,
+                },
+              ];
+            })
           );
           const overwriteTargets = [];
           const additionTargets = [...additions];
           duplicates.forEach((item) => {
             const existingName = item?.existing?.name || "";
-            if (existingName && overwriteNames.has(existingName)) {
-              overwriteTargets.push(item);
-            } else {
-              additionTargets.push(item.entry);
+            const state = duplicateStates.get(existingName) || { importChecked: true, overwriteChecked: true };
+            if (!state.importChecked) {
+              return;
             }
+            if (state.overwriteChecked && existingName) {
+              overwriteTargets.push(item);
+              return;
+            }
+            additionTargets.push(item.entry);
           });
           applySvgImportChanges({ additions: additionTargets, overwrites: overwriteTargets, warnings, fileName });
           closeSvgImportModal();
