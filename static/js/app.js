@@ -7404,21 +7404,31 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             return points;
           }
 
-          function parseSvgPathToPolygons(d = "") {
-            const trimmed = (d || "").trim();
-            const pathWarnings = new Set();
-            if (!trimmed) {
-              return { polygons: [], warnings: [] };
-            }
-
-            const fallback = parseSvgPathToPolygonsLegacy(trimmed, pathWarnings);
-            if (fallback.polygons.length) {
-              return { polygons: fallback.polygons, warnings: Array.from(pathWarnings) };
-            }
-
-            const sampled = sampleSvgPathToPolygon(trimmed, pathWarnings);
-            return { polygons: sampled, warnings: Array.from(pathWarnings) };
+        function parseSvgPathToPolygons(d = "") {
+          const trimmed = (d || "").trim();
+          const pathWarnings = new Set();
+          if (!trimmed) {
+            return { polygons: [], warnings: [] };
           }
+
+          const unsupportedCommands = (trimmed.match(/[AaCcQqSsTt]/g) || []).map((command) =>
+            command.toUpperCase()
+          );
+          if (unsupportedCommands.length) {
+            unsupportedCommands.forEach((command) => pathWarnings.add(`path (${command})`));
+          }
+
+          const fallback =
+            unsupportedCommands.length > 0
+              ? { polygons: [] }
+              : parseSvgPathToPolygonsLegacy(trimmed, pathWarnings);
+          if (fallback.polygons.length && pathWarnings.size === 0) {
+            return { polygons: fallback.polygons, warnings: Array.from(pathWarnings) };
+          }
+
+          const sampled = sampleSvgPathToPolygon(trimmed, pathWarnings);
+          return { polygons: sampled, warnings: Array.from(pathWarnings) };
+        }
 
           function sampleSvgPathToPolygon(d, pathWarnings) {
             try {
