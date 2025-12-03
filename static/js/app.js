@@ -306,7 +306,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const bulkStaticNumberInput = document.getElementById("bulk-static-number");
         const bulkStaticValueSelect = document.getElementById("bulk-static-value");
         const bulkShapeOutsetInput = document.getElementById("bulk-shape-outset");
-        const bulkShapeInsetInput = document.getElementById("bulk-shape-inset");
         const bulkShapeMoveXInput = document.getElementById("bulk-shape-move-x");
         const bulkShapeMoveYInput = document.getElementById("bulk-shape-move-y");
         const svgImportModal = document.getElementById("svg-import-modal");
@@ -834,17 +833,16 @@ document.addEventListener("DOMContentLoaded", () => {
           return shape ? JSON.parse(JSON.stringify(shape)) : null;
         }
 
-        function resolveBulkShapeTransform() {
-          const outsetValue = Math.abs(parseNumeric(bulkShapeOutsetInput?.value, 0) || 0);
-          const insetValue = Math.abs(parseNumeric(bulkShapeInsetInput?.value, 0) || 0);
-          const moveX = parseNumeric(bulkShapeMoveXInput?.value, 0) || 0;
-          const moveY = parseNumeric(bulkShapeMoveYInput?.value, 0) || 0;
-          return {
-            delta: outsetValue - insetValue,
-            offsetX: moveX,
-            offsetY: moveY,
-          };
-        }
+          function resolveBulkShapeTransform() {
+            const delta = parseNumeric(bulkShapeOutsetInput?.value, 0) || 0;
+            const moveX = parseNumeric(bulkShapeMoveXInput?.value, 0) || 0;
+            const moveY = parseNumeric(bulkShapeMoveYInput?.value, 0) || 0;
+            return {
+              delta,
+              offsetX: moveX,
+              offsetY: moveY,
+            };
+          }
 
         function buildBulkShapePreviewTrace(shape, colorSet, label, options = {}) {
           if (!shape) {
@@ -2128,20 +2126,20 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             return null;
           }
           return numericPoints.map((point) => {
-            const vectorX = point.x - centroid.x;
-            const vectorY = point.y - centroid.y;
-            const distance = Math.hypot(vectorX, vectorY);
-            if (!Number.isFinite(distance) || distance === 0) {
-              return {
-                X: formatReplicateNumber(point.x),
-                Y: formatReplicateNumber(point.y),
-              };
-            }
-            const nextDistance = Math.max(0, distance + delta);
-            const scale = nextDistance / distance;
+            const deltaX = point.x - centroid.x;
+            const deltaY = point.y - centroid.y;
+            const adjustAxis = (component) => {
+              if (!Number.isFinite(component)) {
+                return 0;
+              }
+              const magnitude = Math.abs(component);
+              const nextMagnitude = Math.max(0, magnitude + delta);
+              const sign = component >= 0 ? 1 : -1;
+              return sign * nextMagnitude;
+            };
             return {
-              X: formatReplicateNumber(centroid.x + vectorX * scale),
-              Y: formatReplicateNumber(centroid.y + vectorY * scale),
+              X: formatReplicateNumber(centroid.x + adjustAxis(deltaX)),
+              Y: formatReplicateNumber(centroid.y + adjustAxis(deltaY)),
             };
           });
         }
@@ -10555,25 +10553,24 @@ function parsePolygonTrace(doc) {
             .join("");
         }
 
-        function resetBulkEditForm() {
-          bulkEditState.selectedCases.clear();
-          bulkEditState.selectedShapes.clear();
-          bulkEditState.lastCaseIndex = null;
-          bulkEditState.lastShapeIndex = null;
-          if (bulkStaticNumberInput) {
-            bulkStaticNumberInput.value = "1";
-          }
-          if (bulkStaticValueSelect) {
-            bulkStaticValueSelect.value = "DontCare";
-          }
-          [
-            bulkShapeOutsetInput,
-            bulkShapeInsetInput,
-            bulkShapeMoveXInput,
-            bulkShapeMoveYInput,
-          ].forEach((input) => {
-            if (input) {
-              input.value = "0";
+          function resetBulkEditForm() {
+            bulkEditState.selectedCases.clear();
+            bulkEditState.selectedShapes.clear();
+            bulkEditState.lastCaseIndex = null;
+            bulkEditState.lastShapeIndex = null;
+            if (bulkStaticNumberInput) {
+              bulkStaticNumberInput.value = "1";
+            }
+            if (bulkStaticValueSelect) {
+              bulkStaticValueSelect.value = "DontCare";
+            }
+            [
+              bulkShapeOutsetInput,
+              bulkShapeMoveXInput,
+              bulkShapeMoveYInput,
+            ].forEach((input) => {
+              if (input) {
+                input.value = "0";
             }
           });
           renderBulkEditCaseToggles();
@@ -12050,16 +12047,11 @@ function parsePolygonTrace(doc) {
         if (bulkEditShapeToggles) {
           bulkEditShapeToggles.addEventListener("click", handleBulkToggleClick);
         }
-        [
-          bulkShapeOutsetInput,
-          bulkShapeInsetInput,
-          bulkShapeMoveXInput,
-          bulkShapeMoveYInput,
-        ].forEach((input) => {
-          if (input) {
-            input.addEventListener("input", () => {
-              renderFigure();
-            });
+          [bulkShapeOutsetInput, bulkShapeMoveXInput, bulkShapeMoveYInput].forEach((input) => {
+            if (input) {
+              input.addEventListener("input", () => {
+                renderFigure();
+              });
           }
         });
         createFieldShapeLists.forEach((listObj) => {

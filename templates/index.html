@@ -1825,12 +1825,8 @@
           <div class="bulk-toggle-grid" id="bulk-edit-shape-toggles"></div>
           <div class="bulk-edit-grid">
             <label>
-              Outset (mm)
+              Outset / Inset (mm)
               <input type="number" id="bulk-shape-outset" step="1" value="0" />
-            </label>
-            <label>
-              Inset (mm)
-              <input type="number" id="bulk-shape-inset" step="1" value="0" />
             </label>
             <label>
               Move X (mm)
@@ -1841,7 +1837,7 @@
               <input type="number" id="bulk-shape-move-y" step="1" value="0" />
             </label>
           </div>
-          <p class="bulk-edit-note">Outset / Inset は絶対値で指定し、選択した Shape を個別に拡張・縮小します。</p>
+          <p class="bulk-edit-note">正の値でOutset、負の値でInsetとして選択した Shape を個別に拡張・縮小します。</p>
         </div>
       </div>
       <div class="modal-footer">
