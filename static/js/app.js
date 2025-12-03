@@ -622,6 +622,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const previewTraces = buildCreateShapePreviewTraces();
           const fieldModalPreviewTraces = buildFieldModalPreviewTraces();
           const replicatePreviewTraces = buildReplicatePreviewTraces();
+          const bulkEditPreviewTraces = buildBulkEditPreviewTraces();
           const layout = {
             ...(currentFigure.layout || {}),
             uirevision: `${baseFigureVersion}:${triOrbShapeTraceVersion}:${fieldsetTraceVersion}:${deviceOverlayVersion}`,
@@ -671,6 +672,9 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           if (replicatePreviewTraces.length) {
             combinedTraces.push(...replicatePreviewTraces);
+          }
+          if (bulkEditPreviewTraces.length) {
+            combinedTraces.push(...bulkEditPreviewTraces);
           }
           Plotly.react(plotNode, combinedTraces, layout, figureConfig);
         }
@@ -824,6 +828,143 @@ document.addEventListener("DOMContentLoaded", () => {
           )}<extra></extra>`;
           previewTrace.meta = { ...(previewTrace.meta || {}), preview: true };
           return [previewTrace];
+        }
+
+        function cloneTriOrbShape(shape) {
+          return shape ? JSON.parse(JSON.stringify(shape)) : null;
+        }
+
+        function resolveBulkShapeTransform() {
+          const outsetValue = Math.abs(parseNumeric(bulkShapeOutsetInput?.value, 0) || 0);
+          const insetValue = Math.abs(parseNumeric(bulkShapeInsetInput?.value, 0) || 0);
+          const moveX = parseNumeric(bulkShapeMoveXInput?.value, 0) || 0;
+          const moveY = parseNumeric(bulkShapeMoveYInput?.value, 0) || 0;
+          return {
+            delta: outsetValue - insetValue,
+            offsetX: moveX,
+            offsetY: moveY,
+          };
+        }
+
+        function buildBulkShapePreviewTrace(shape, colorSet, label, options = {}) {
+          if (!shape) {
+            return null;
+          }
+          let trace = null;
+          switch (shape.type) {
+            case "Rectangle":
+              if (shape.rectangle) {
+                trace = buildRectangleTrace(
+                  shape.rectangle,
+                  colorSet,
+                  label,
+                  shape.fieldtype || "ProtectiveSafeBlanking",
+                  0,
+                  0,
+                  0
+                );
+              }
+              break;
+            case "Circle":
+              if (shape.circle) {
+                trace = buildCircleTrace(
+                  shape.circle,
+                  colorSet,
+                  label,
+                  shape.fieldtype || "ProtectiveSafeBlanking",
+                  0,
+                  0,
+                  0
+                );
+              }
+              break;
+            case "Polygon":
+            default:
+              if (shape.polygon) {
+                trace = buildPolygonTrace(
+                  shape.polygon,
+                  colorSet,
+                  label,
+                  shape.fieldtype || "ProtectiveSafeBlanking",
+                  0,
+                  0,
+                  0
+                );
+              }
+              break;
+          }
+          if (!trace) {
+            return null;
+          }
+          const lineWidth = Math.max((trace.line && trace.line.width) || 2, options.minLineWidth || 3);
+          trace.line = {
+            ...(trace.line || {}),
+            color: colorSet.stroke,
+            width: lineWidth,
+            dash: options.lineDash || "solid",
+          };
+          trace.fillcolor = colorSet.fill;
+          trace.name = label;
+          trace.showlegend = false;
+          trace.hovertemplate = `<b>${escapeHtml(label)}</b><extra></extra>`;
+          trace.meta = { ...(trace.meta || {}), bulkEditPreview: true };
+          return trace;
+        }
+
+        function buildBulkEditPreviewTraces() {
+          if (!bulkEditState.selectedShapes.size) {
+            return [];
+          }
+          syncBulkEditSelections();
+          const { delta, offsetX, offsetY } = resolveBulkShapeTransform();
+          const colorSets = {
+            selected: {
+              stroke: "rgba(14, 165, 233, 0.9)",
+              fill: withAlpha("#0ea5e9", 0.12),
+            },
+            preview: {
+              stroke: "rgba(239, 68, 68, 0.95)",
+              fill: withAlpha("#ef4444", 0.08),
+            },
+          };
+          const traces = [];
+          bulkEditState.selectedShapes.forEach((shapeIndex) => {
+            const shape = triorbShapes[shapeIndex];
+            if (!shape || shape.visible === false) {
+              return;
+            }
+            const labelBase = shape.name || `Shape ${shapeIndex + 1}`;
+            const selectedTrace = buildBulkShapePreviewTrace(
+              shape,
+              colorSets.selected,
+              `${labelBase} (選択中)`,
+              { lineDash: "dot" }
+            );
+            if (selectedTrace) {
+              traces.push(selectedTrace);
+            }
+            const previewShape = cloneTriOrbShape(shape);
+            let previewChanged = false;
+            if (delta !== 0) {
+              previewChanged = applyShapeInsetOutset(previewShape, delta) || previewChanged;
+            }
+            if (offsetX || offsetY) {
+              applyReplicationTransform(previewShape, { offsetX, offsetY });
+              previewChanged = true;
+            }
+            if (previewChanged) {
+              const previewTrace = buildBulkShapePreviewTrace(
+                previewShape,
+                colorSets.preview,
+                `${labelBase} (適用後プレビュー)`,
+                { minLineWidth: 4 }
+              );
+              if (previewTrace) {
+                traces.push(previewTrace);
+              }
+            }
+          });
+          return traces;
         }
 
 function buildPolygonTrace(polygon, colorSet, label, fieldType, fieldsetIndex, fieldIndex, polygonIndex) {
@@ -10437,6 +10578,7 @@ function parsePolygonTrace(doc) {
           });
           renderBulkEditCaseToggles();
           renderBulkEditShapeToggles();
+          renderFigure();
         }
 
         function handleBulkToggleClick(event) {
@@ -10474,6 +10616,7 @@ function parsePolygonTrace(doc) {
           } else {
             renderBulkEditShapeToggles();
           }
+          renderFigure();
         }
 
         function applyBulkCaseStaticInputs(staticIndex, staticValue) {
@@ -10527,11 +10670,7 @@ function parsePolygonTrace(doc) {
             bulkStaticNumberInput.value = String(staticNumber);
           }
           const staticValue = bulkStaticValueSelect?.value || "DontCare";
-          const outsetValue = Math.abs(parseNumeric(bulkShapeOutsetInput?.value, 0) || 0);
-          const insetValue = Math.abs(parseNumeric(bulkShapeInsetInput?.value, 0) || 0);
-          const moveX = parseNumeric(bulkShapeMoveXInput?.value, 0) || 0;
-          const moveY = parseNumeric(bulkShapeMoveYInput?.value, 0) || 0;
-          const delta = outsetValue - insetValue;
+          const { delta, offsetX: moveX, offsetY: moveY } = resolveBulkShapeTransform();
           const updatedCases = applyBulkCaseStaticInputs(staticNumber - 1, staticValue);
           const updatedShapes = applyBulkShapeAdjustments(delta, moveX, moveY);
           if (!updatedCases && !updatedShapes) {
@@ -10578,6 +10717,7 @@ function parsePolygonTrace(doc) {
           if (!bulkEditModal) {
             return;
           }
+          resetBulkEditForm();
           bulkEditModal.classList.remove("active");
           bulkEditModal.setAttribute("aria-hidden", "true");
         }
@@ -11910,6 +12050,18 @@ function parsePolygonTrace(doc) {
         if (bulkEditShapeToggles) {
           bulkEditShapeToggles.addEventListener("click", handleBulkToggleClick);
         }
+        [
+          bulkShapeOutsetInput,
+          bulkShapeInsetInput,
+          bulkShapeMoveXInput,
+          bulkShapeMoveYInput,
+        ].forEach((input) => {
+          if (input) {
+            input.addEventListener("input", () => {
+              renderFigure();
+            });
+          }
+        });
         createFieldShapeLists.forEach((listObj) => {
           Object.values(listObj).forEach((list) => {
             if (list) {
