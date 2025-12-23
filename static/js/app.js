@@ -6230,6 +6230,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           scanDeviceAttrs = null,
           fieldsetDeviceAttrs = null,
           includeUserFieldIds = true,
+          deviceIndexStrategy = "zero",
         } = {}) {
           // TriOrb Shapes やフィールド参照は UI 操作で逐次変化するため、
           // 保存直前にレジストリを再構築して ID → Shape の引き当て漏れを防ぐ。
@@ -6237,7 +6238,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
 
           const figure = currentFigure || defaultFigure;
           const fileInfoLines = buildFileInfoLines();
-          const scanPlaneLines = buildScanPlanesXml(scanDeviceAttrs);
+          const scanPlaneLines = buildScanPlanesXml(scanDeviceAttrs, {
+            deviceIndexStrategy,
+          });
           const fieldsetLines = buildFieldsetsXml(fieldsetDeviceAttrs, {
             includeUserFieldIds,
           });
@@ -6278,7 +6281,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         }
 
         function buildTriOrbXml() {
-          const lines = buildBaseSdImportExportLines().slice();
+          const lines = buildBaseSdImportExportLines({
+            deviceIndexStrategy: "sequential",
+          }).slice();
           lines.push("");
           if (!triorbSource) {
             triorbSource = "TriOrbAware";
@@ -6328,12 +6333,23 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
 
         function buildDeviceAttributeString(
           attrs,
-          { keepDeviceName = false, includeIndex = true } = {}
+          {
+            keepDeviceName = false,
+            includeIndex = true,
+            deviceIndex = 0,
+            deviceIndexStrategy = "zero",
+          } = {}
         ) {
           if (!attrs) return "";
           const sanitized = { ...attrs };
           if (includeIndex) {
-            sanitized.Index = "0";
+            if (deviceIndexStrategy === "sequential") {
+              sanitized.Index = String(deviceIndex ?? 0);
+            } else if (deviceIndexStrategy === "preserve" && attrs.Index !== undefined) {
+              sanitized.Index = String(attrs.Index);
+            } else {
+              sanitized.Index = "0";
+            }
           } else {
             delete sanitized.Index;
           }
@@ -6348,7 +6364,10 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return rawName.replace(/[^a-zA-Z0-9._-]/g, "_");
         }
 
-        function buildScanPlanesXml(scanDeviceAttrs = null) {
+        function buildScanPlanesXml(
+          scanDeviceAttrs = null,
+          { deviceIndexStrategy = "zero" } = {}
+        ) {
           if (!scanPlanes.length) {
             return ["    <!-- ScanPlane not set -->"];
           }
@@ -6364,9 +6383,11 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               : plane.devices || [];
             lines.push("      <Devices>");
             if (devicesToRender.length) {
-              devicesToRender.forEach((device) => {
+              devicesToRender.forEach((device, deviceIndex) => {
                 const attrs = buildDeviceAttributeString(device.attributes, {
                   keepDeviceName: true,
+                  deviceIndex,
+                  deviceIndexStrategy,
                 });
                 lines.push(`        <Device${attrs ? " " + attrs : ""} />`);
               });
@@ -11359,7 +11380,7 @@ function parsePolygonTrace(doc) {
         if (saveTriOrbBtn) {
           saveTriOrbBtn.addEventListener("click", () => {
             const xml = buildTriOrbXml();
-            downloadXml(xml);
+            downloadXml(xml, `TriOrb_${Date.now()}.sgexml`);
             setStatus("TriOrb XML downloaded.");
           });
         }
