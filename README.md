@@ -62,7 +62,7 @@ XML 生成・読み込み時には `<SdImportExport xmlns:xsd="http://www.w3.org
 
 ## デプロイ
 - `python freeze.py` で静的ファイル出力（`docs/`）。
-- `mike deploy --push --branch gh-pages latest --update-aliases` で公開。
+- `mike deploy --branch gh-pages latest --update-aliases --ignore-remote-status && git push origin gh-pages --force` で公開。
 
 ## チェックポイント
 - TriOrb Shape の追加・編集・削除でコンソールエラーが発生しないこと
