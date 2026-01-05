@@ -41,6 +41,8 @@ venv.bak/
 # PyInstaller
 *.manifest
 *.spec
+# ルートのマニフェストファイルは管理対象
+!/.manifest
 
 # Installer logs
 pip-log.txt
