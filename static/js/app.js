@@ -354,6 +354,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const replicateRotationOriginXInput = document.getElementById("replicate-rotation-origin-x");
         const replicateRotationOriginYInput = document.getElementById("replicate-rotation-origin-y");
         const replicateEllipseRatioInput = document.getElementById("replicate-ellipse-ratio");
+        const replicateWidthSineGainInput = document.getElementById("replicate-width-sine-gain");
+        const replicateHeightSineGainInput = document.getElementById("replicate-height-sine-gain");
         const replicateScalePercentInput = document.getElementById("replicate-scale-percent");
         const replicateIncludeCutoutsInput = document.getElementById("replicate-include-cutouts");
         const replicatePreserveOrientationInput = document.getElementById(
@@ -486,6 +488,8 @@ document.addEventListener("DOMContentLoaded", () => {
           rotationOriginX: 0,
           rotationOriginY: 0,
           ellipseRatio: 1,
+          widthSineGain: 0,
+          heightSineGain: 0,
           scalePercent: 0,
           casePrefix: "",
           includeCutouts: false,
@@ -2065,6 +2069,14 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const hasRotation = rotation !== 0;
           const hasScale = scale !== 1;
           const preserveOrientation = Boolean(transform.preserveOrientation);
+          const widthSineGain =
+            preserveOrientation && Number.isFinite(transform.widthSineGain)
+              ? Number(transform.widthSineGain)
+              : 0;
+          const heightSineGain =
+            preserveOrientation && Number.isFinite(transform.heightSineGain)
+              ? Number(transform.heightSineGain)
+              : 0;
           const rotationRadians = hasRotation ? degreesToRadians(rotation) : 0;
           if (!offsetX && !offsetY && !hasRotation && !hasScale) {
             return;
@@ -2084,9 +2096,17 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             let originX = parseNumeric(shape.rectangle.OriginX, 0);
             let originY = parseNumeric(shape.rectangle.OriginY, 0);
             const baseRotation = parseNumeric(shape.rectangle.Rotation, 0);
+            let width = parseNumeric(shape.rectangle.Width, NaN);
+            let height = parseNumeric(shape.rectangle.Height, NaN);
             if (hasScale) {
               originX *= scale;
               originY *= scale;
+              if (Number.isFinite(width)) {
+                width *= scale;
+              }
+              if (Number.isFinite(height)) {
+                height *= scale;
+              }
             }
             if (hasRotation) {
               const rotated = rotatePointWithEllipse(
@@ -2104,15 +2124,22 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             originY += offsetY;
             shape.rectangle.OriginX = formatReplicateNumber(originX);
             shape.rectangle.OriginY = formatReplicateNumber(originY);
-            if (hasScale) {
-              const width = parseNumeric(shape.rectangle.Width, NaN);
-              const height = parseNumeric(shape.rectangle.Height, NaN);
-              if (Number.isFinite(width)) {
-                shape.rectangle.Width = formatReplicateNumber(width * scale);
+            const applySineGain =
+              preserveOrientation && hasRotation && (widthSineGain !== 0 || heightSineGain !== 0);
+            if (applySineGain) {
+              const sineComponent = Math.sin(rotationRadians);
+              if (Number.isFinite(width) && widthSineGain !== 0) {
+                width += widthSineGain * sineComponent;
               }
-              if (Number.isFinite(height)) {
-                shape.rectangle.Height = formatReplicateNumber(height * scale);
+              if (Number.isFinite(height) && heightSineGain !== 0) {
+                height += heightSineGain * sineComponent;
               }
+            }
+            if (Number.isFinite(width) && (hasScale || applySineGain)) {
+              shape.rectangle.Width = formatReplicateNumber(width);
+            }
+            if (Number.isFinite(height) && (hasScale || applySineGain)) {
+              shape.rectangle.Height = formatReplicateNumber(height);
             }
             if (hasRotation) {
               const nextRotation = preserveOrientation
@@ -3210,6 +3237,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                 rotationOriginX: replicatePreviewState.rotationOriginX,
                 rotationOriginY: replicatePreviewState.rotationOriginY,
                 ellipseRatio: replicatePreviewState.ellipseRatio,
+                widthSineGain: replicatePreviewState.widthSineGain,
+                heightSineGain: replicatePreviewState.heightSineGain,
                 scale: computeReplicationScale(scalePercent, step),
                 preserveOrientation,
               };
@@ -3256,6 +3285,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotationOriginX: replicatePreviewState.rotationOriginX,
               rotationOriginY: replicatePreviewState.rotationOriginY,
               ellipseRatio: replicatePreviewState.ellipseRatio,
+              widthSineGain: replicatePreviewState.widthSineGain,
+              heightSineGain: replicatePreviewState.heightSineGain,
               scale: computeReplicationScale(scalePercent, step),
               preserveOrientation,
             };
@@ -3450,6 +3481,15 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateCasePrefixInput.placeholder = resolveReplicatePrefixPlaceholderLabel();
         }
 
+        function updateReplicateSineGainAvailability() {
+          const enabled = Boolean(replicatePreserveOrientationInput?.checked);
+          [replicateWidthSineGainInput, replicateHeightSineGainInput].forEach((input) => {
+            if (input) {
+              input.disabled = !enabled;
+            }
+          });
+        }
+
         function populateReplicateFieldsetOptions(preferredIndex = 0) {
           if (!replicateFieldsetSelect) {
             return -1;
@@ -3598,6 +3638,12 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (replicateEllipseRatioInput) {
             replicateEllipseRatioInput.value = replicateFormState.ellipseRatio ?? 1;
           }
+          if (replicateWidthSineGainInput) {
+            replicateWidthSineGainInput.value = replicateFormState.widthSineGain ?? 0;
+          }
+          if (replicateHeightSineGainInput) {
+            replicateHeightSineGainInput.value = replicateFormState.heightSineGain ?? 0;
+          }
           if (replicateScalePercentInput) {
             replicateScalePercentInput.value = replicateFormState.scalePercent ?? 0;
           }
@@ -3611,6 +3657,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               replicateFormState.preserveOrientation
             );
           }
+          updateReplicateSineGainAvailability();
           if (replicateStaticInputsAutoInput) {
             replicateStaticInputsAutoInput.checked = Boolean(
               replicateFormState.autoStaticInputs
@@ -3695,9 +3742,13 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             0.01,
             parseNumeric(replicateEllipseRatioInput?.value, 1) || 1
           );
+          const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
+          const rawWidthSineGain = parseNumeric(replicateWidthSineGainInput?.value, 0) || 0;
+          const rawHeightSineGain = parseNumeric(replicateHeightSineGainInput?.value, 0) || 0;
+          const widthSineGain = preserveOrientation ? rawWidthSineGain : 0;
+          const heightSineGain = preserveOrientation ? rawHeightSineGain : 0;
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
-          const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
           const prefixInput = replicateCasePrefixInput?.value?.trim();
           const casePrefix = prefixInput || resolveReplicatePrefixFallback();
           replicateFormState.fieldsetIndex = fieldsetIndex;
@@ -3708,6 +3759,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateFormState.rotationOriginX = rotationOriginX;
           replicateFormState.rotationOriginY = rotationOriginY;
           replicateFormState.ellipseRatio = ellipseRatio;
+          replicateFormState.widthSineGain = widthSineGain;
+          replicateFormState.heightSineGain = heightSineGain;
           replicateFormState.scalePercent = scalePercent;
           replicateFormState.casePrefix = casePrefix;
           replicateFormState.includeCutouts = includeCutouts;
@@ -3722,6 +3775,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotationOriginX,
               rotationOriginY,
               ellipseRatio,
+              widthSineGain,
+              heightSineGain,
               scale: computeReplicationScale(scalePercent, step),
               preserveOrientation,
             };
@@ -3813,6 +3868,10 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
           const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
+          const rawWidthSineGain = parseNumeric(replicateWidthSineGainInput?.value, 0) || 0;
+          const rawHeightSineGain = parseNumeric(replicateHeightSineGainInput?.value, 0) || 0;
+          const widthSineGain = preserveOrientation ? rawWidthSineGain : 0;
+          const heightSineGain = preserveOrientation ? rawHeightSineGain : 0;
           const autoStaticInputs = Boolean(replicateStaticInputsAutoInput?.checked);
           const includePreviousFields = Boolean(replicateIncludePreviousFieldsInput?.checked);
           let speedRangeMinStep = parseInt(replicateSpeedMinStepInput?.value ?? "0", 10);
@@ -3833,6 +3892,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateFormState.rotationOriginX = rotationOriginX;
           replicateFormState.rotationOriginY = rotationOriginY;
           replicateFormState.ellipseRatio = ellipseRatio;
+          replicateFormState.widthSineGain = widthSineGain;
+          replicateFormState.heightSineGain = heightSineGain;
           replicateFormState.scalePercent = scalePercent;
           replicateFormState.includeCutouts = includeCutouts;
           replicateFormState.preserveOrientation = preserveOrientation;
@@ -3888,6 +3949,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                 rotationOriginX,
                 rotationOriginY,
                 ellipseRatio,
+                widthSineGain,
+                heightSineGain,
                 scale: computeReplicationScale(scalePercent, step),
                 preserveOrientation,
               };
@@ -4049,6 +4112,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
           const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
+          const widthSineGain = parseNumeric(replicateWidthSineGainInput?.value, 0) || 0;
+          const heightSineGain = parseNumeric(replicateHeightSineGainInput?.value, 0) || 0;
           let speedRangeMinStep = parseInt(replicateSpeedMinStepInput?.value ?? "0", 10);
           let speedRangeMaxStep = parseInt(replicateSpeedMaxStepInput?.value ?? "0", 10);
           if (!Number.isFinite(speedRangeMinStep)) {
@@ -4057,6 +4122,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (!Number.isFinite(speedRangeMaxStep)) {
             speedRangeMaxStep = 0;
           }
+          const effectiveWidthSineGain = preserveOrientation ? widthSineGain : 0;
+          const effectiveHeightSineGain = preserveOrientation ? heightSineGain : 0;
           if (target === "case") {
             const caseIndexes = captureSelectedReplicateCases();
             return {
@@ -4069,6 +4136,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotationOriginX,
               rotationOriginY,
               ellipseRatio,
+              widthSineGain: effectiveWidthSineGain,
+              heightSineGain: effectiveHeightSineGain,
               scalePercent,
               includeCutouts,
               preserveOrientation,
@@ -4103,6 +4172,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             rotationOriginX,
             rotationOriginY,
             ellipseRatio,
+            widthSineGain: effectiveWidthSineGain,
+            heightSineGain: effectiveHeightSineGain,
             scalePercent,
             includeCutouts,
             preserveOrientation,
@@ -12307,6 +12378,8 @@ function parsePolygonTrace(doc) {
           replicateRotationOriginXInput,
           replicateRotationOriginYInput,
           replicateEllipseRatioInput,
+          replicateWidthSineGainInput,
+          replicateHeightSineGainInput,
           replicateScalePercentInput,
           replicateSpeedMinStepInput,
           replicateSpeedMaxStepInput,
@@ -12340,7 +12413,10 @@ function parsePolygonTrace(doc) {
           replicateIncludeCutoutsInput.addEventListener("change", updateReplicatePreview);
         }
         if (replicatePreserveOrientationInput) {
-          replicatePreserveOrientationInput.addEventListener("change", updateReplicatePreview);
+          replicatePreserveOrientationInput.addEventListener("change", () => {
+            updateReplicateSineGainAvailability();
+            updateReplicatePreview();
+          });
         }
         if (replicateStaticInputsAutoInput) {
           replicateStaticInputsAutoInput.addEventListener("change", updateReplicatePreview);
