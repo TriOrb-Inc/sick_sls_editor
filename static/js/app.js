@@ -12306,6 +12306,7 @@ function parsePolygonTrace(doc) {
           replicateRotationInput,
           replicateRotationOriginXInput,
           replicateRotationOriginYInput,
+          replicateEllipseRatioInput,
           replicateScalePercentInput,
           replicateSpeedMinStepInput,
           replicateSpeedMaxStepInput,
