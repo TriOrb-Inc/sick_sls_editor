@@ -3,6 +3,7 @@ import {
   degreesToRadians,
   getRectangleCornerPoints,
   rotatePoint,
+  rotatePointWithEllipse,
   normalizeDegrees,
   parseNumeric,
 } from "./modules/geometry.js";
@@ -234,8 +235,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const caseCheckAllBtn = document.getElementById("btn-case-check-all");
         const caseUncheckAllBtn = document.getElementById("btn-case-uncheck-all");
+        const caseDeleteVisibleBtn = document.getElementById("btn-case-delete-visible");
         const checkAllBtn = document.getElementById("btn-fieldset-check-all");
         const uncheckAllBtn = document.getElementById("btn-fieldset-uncheck-all");
+        const fieldDeleteVisibleBtn = document.getElementById("btn-field-delete-visible");
         const toggleLegendBtn = document.getElementById("btn-toggle-legend");
         const fieldOfViewInput = document.getElementById("triorb-field-of-view");
         const globalResolutionInput = document.getElementById("global-resolution");
@@ -249,6 +252,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const triorbShapeCheckAllBtn = document.getElementById("btn-triorb-shape-check-all");
         const triorbShapeUncheckAllBtn = document.getElementById("btn-triorb-shape-uncheck-all");
+        const triorbShapeDeleteVisibleBtn = document.getElementById(
+          "btn-triorb-shape-delete-visible"
+        );
         const overlayShapeBtn = document.getElementById("btn-add-shape-overlay");
         const overlayFieldBtn = document.getElementById("btn-add-field-overlay");
         const replicateFieldBtn = document.getElementById("btn-replicate-field");
@@ -294,6 +300,25 @@ document.addEventListener("DOMContentLoaded", () => {
         const replicateModalApply = document.getElementById("replicate-modal-apply");
         const replicateModalHeader = replicateModalWindow?.querySelector(".modal-header");
         const replicateModalBody = replicateModalWindow?.querySelector(".modal-body");
+        const bulkEditModalWindow = document.querySelector("#bulk-edit-modal .modal-window");
+        const bulkEditModalHeader = bulkEditModalWindow?.querySelector(".modal-header");
+        const bulkEditBtn = document.getElementById("btn-bulk-edit");
+        const bulkEditModal = document.getElementById("bulk-edit-modal");
+        const bulkEditModalClose = document.getElementById("bulk-edit-modal-close");
+        const bulkEditModalCancel = document.getElementById("bulk-edit-modal-cancel");
+        const bulkEditModalApply = document.getElementById("bulk-edit-modal-apply");
+        const bulkEditCaseToggles = document.getElementById("bulk-edit-case-toggles");
+        const bulkEditShapeToggles = document.getElementById("bulk-edit-shape-toggles");
+        const bulkStaticNumberInput = document.getElementById("bulk-static-number");
+        const bulkStaticValueSelect = document.getElementById("bulk-static-value");
+        const bulkShapeOutsetInput = document.getElementById("bulk-shape-outset");
+        const bulkShapeMoveXInput = document.getElementById("bulk-shape-move-x");
+        const bulkShapeMoveYInput = document.getElementById("bulk-shape-move-y");
+        const svgImportModal = document.getElementById("svg-import-modal");
+        const svgImportDuplicateList = document.getElementById("svg-import-duplicate-list");
+        const svgImportApplyBtn = document.getElementById("svg-import-apply");
+        const svgImportCancelBtn = document.getElementById("svg-import-cancel");
+        const svgImportCloseBtn = document.getElementById("svg-import-close");
         const createFieldsetNameInput = document.getElementById("create-field-fieldset-name");
         const createFieldsetLatinInput = document.getElementById("create-field-fieldset-latin9");
         const createFieldNameInputs = [
@@ -328,6 +353,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const replicateRotationInput = document.getElementById("replicate-rotation");
         const replicateRotationOriginXInput = document.getElementById("replicate-rotation-origin-x");
         const replicateRotationOriginYInput = document.getElementById("replicate-rotation-origin-y");
+        const replicateEllipseRatioInput = document.getElementById("replicate-ellipse-ratio");
+        const replicateWidthSineGainInput = document.getElementById("replicate-width-sine-gain");
+        const replicateHeightSineGainInput = document.getElementById("replicate-height-sine-gain");
         const replicateScalePercentInput = document.getElementById("replicate-scale-percent");
         const replicateIncludeCutoutsInput = document.getElementById("replicate-include-cutouts");
         const replicatePreserveOrientationInput = document.getElementById(
@@ -366,6 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const triOrbShapeIndexLookup = new Map();
         const triOrbShapeCardCache = new Map();
         let triOrbShapesListInitialized = false;
+        let pendingSvgImportContext = null;
         let triorbSource = bootstrapData.triorbSource || "";
         let fieldsets = initializeFieldsets(initialFieldsets);
         let fieldsetDevices = initializeFieldsetDevices(initialFieldsetDevices);
@@ -458,6 +487,9 @@ document.addEventListener("DOMContentLoaded", () => {
           rotation: 0,
           rotationOriginX: 0,
           rotationOriginY: 0,
+          ellipseRatio: 1,
+          widthSineGain: 0,
+          heightSineGain: 0,
           scalePercent: 0,
           casePrefix: "",
           includeCutouts: false,
@@ -466,6 +498,12 @@ document.addEventListener("DOMContentLoaded", () => {
           speedRangeMinStep: 0,
           speedRangeMaxStep: 0,
           includePreviousFields: false,
+        };
+        const bulkEditState = {
+          selectedCases: new Set(),
+          selectedShapes: new Set(),
+          lastCaseIndex: null,
+          lastShapeIndex: null,
         };
         let replicatePreviewState = null;
         const plotTraceCache = {
@@ -595,6 +633,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const previewTraces = buildCreateShapePreviewTraces();
           const fieldModalPreviewTraces = buildFieldModalPreviewTraces();
           const replicatePreviewTraces = buildReplicatePreviewTraces();
+          const bulkEditPreviewTraces = buildBulkEditPreviewTraces();
           const layout = {
             ...(currentFigure.layout || {}),
             uirevision: `${baseFigureVersion}:${triOrbShapeTraceVersion}:${fieldsetTraceVersion}:${deviceOverlayVersion}`,
@@ -644,6 +683,9 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           if (replicatePreviewTraces.length) {
             combinedTraces.push(...replicatePreviewTraces);
+          }
+          if (bulkEditPreviewTraces.length) {
+            combinedTraces.push(...bulkEditPreviewTraces);
           }
           Plotly.react(plotNode, combinedTraces, layout, figureConfig);
         }
@@ -797,6 +839,142 @@ document.addEventListener("DOMContentLoaded", () => {
           )}<extra></extra>`;
           previewTrace.meta = { ...(previewTrace.meta || {}), preview: true };
           return [previewTrace];
+        }
+
+        function cloneTriOrbShape(shape) {
+          return shape ? JSON.parse(JSON.stringify(shape)) : null;
+        }
+
+          function resolveBulkShapeTransform() {
+            const delta = parseNumeric(bulkShapeOutsetInput?.value, 0) || 0;
+            const moveX = parseNumeric(bulkShapeMoveXInput?.value, 0) || 0;
+            const moveY = parseNumeric(bulkShapeMoveYInput?.value, 0) || 0;
+            return {
+              delta,
+              offsetX: moveX,
+              offsetY: moveY,
+            };
+          }
+
+        function buildBulkShapePreviewTrace(shape, colorSet, label, options = {}) {
+          if (!shape) {
+            return null;
+          }
+          let trace = null;
+          switch (shape.type) {
+            case "Rectangle":
+              if (shape.rectangle) {
+                trace = buildRectangleTrace(
+                  shape.rectangle,
+                  colorSet,
+                  label,
+                  shape.fieldtype || "ProtectiveSafeBlanking",
+                  0,
+                  0,
+                  0
+                );
+              }
+              break;
+            case "Circle":
+              if (shape.circle) {
+                trace = buildCircleTrace(
+                  shape.circle,
+                  colorSet,
+                  label,
+                  shape.fieldtype || "ProtectiveSafeBlanking",
+                  0,
+                  0,
+                  0
+                );
+              }
+              break;
+            case "Polygon":
+            default:
+              if (shape.polygon) {
+                trace = buildPolygonTrace(
+                  shape.polygon,
+                  colorSet,
+                  label,
+                  shape.fieldtype || "ProtectiveSafeBlanking",
+                  0,
+                  0,
+                  0
+                );
+              }
+              break;
+          }
+          if (!trace) {
+            return null;
+          }
+          const lineWidth = Math.max((trace.line && trace.line.width) || 2, options.minLineWidth || 3);
+          trace.line = {
+            ...(trace.line || {}),
+            color: colorSet.stroke,
+            width: lineWidth,
+            dash: options.lineDash || "solid",
+          };
+          trace.fillcolor = colorSet.fill;
+          trace.name = label;
+          trace.showlegend = false;
+          trace.hovertemplate = `<b>${escapeHtml(label)}</b><extra></extra>`;
+          trace.meta = { ...(trace.meta || {}), bulkEditPreview: true };
+          return trace;
+        }
+
+        function buildBulkEditPreviewTraces() {
+          if (!bulkEditState.selectedShapes.size) {
+            return [];
+          }
+          syncBulkEditSelections();
+          const { delta, offsetX, offsetY } = resolveBulkShapeTransform();
+          const colorSets = {
+            selected: {
+              stroke: "rgba(14, 165, 233, 0.9)",
+              fill: withAlpha("#0ea5e9", 0.12),
+            },
+            preview: {
+              stroke: "rgba(239, 68, 68, 0.95)",
+              fill: withAlpha("#ef4444", 0.08),
+            },
+          };
+          const traces = [];
+          bulkEditState.selectedShapes.forEach((shapeIndex) => {
+            const shape = triorbShapes[shapeIndex];
+            if (!shape) {
+              return;
+            }
+            const labelBase = shape.name || `Shape ${shapeIndex + 1}`;
+            const selectedTrace = buildBulkShapePreviewTrace(
+              shape,
+              colorSets.selected,
+              `${labelBase} (選択中)`,
+              { lineDash: "dot" }
+            );
+            if (selectedTrace) {
+              traces.push(selectedTrace);
+            }
+            const previewShape = cloneTriOrbShape(shape);
+            let previewChanged = false;
+            if (delta !== 0) {
+              previewChanged = applyShapeInsetOutset(previewShape, delta) || previewChanged;
+            }
+            if (offsetX || offsetY) {
+              applyReplicationTransform(previewShape, { offsetX, offsetY });
+              previewChanged = true;
+            }
+            if (previewChanged) {
+              const previewTrace = buildBulkShapePreviewTrace(
+                previewShape,
+                colorSets.preview,
+                `${labelBase} (適用後プレビュー)`,
+                { minLineWidth: 4 }
+              );
+              if (previewTrace) {
+                traces.push(previewTrace);
+              }
+            }
+          });
+          return traces;
         }
 
 function buildPolygonTrace(polygon, colorSet, label, fieldType, fieldsetIndex, fieldIndex, polygonIndex) {
@@ -1756,6 +1934,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             rotationOriginY = 0,
             scale = 1,
             preserveOrientation = false,
+            ellipseRatio = 1,
+            widthSineGain = 0,
+            heightSineGain = 0,
           } = {}
         ) {
           const numericPoints = (points || []).map((point) => ({
@@ -1771,6 +1952,10 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const radians = hasRotation ? degreesToRadians(rotation) : 0;
           const originX = Number(rotationOriginX) || 0;
           const originY = Number(rotationOriginY) || 0;
+          const safeEllipseRatio =
+            Number.isFinite(ellipseRatio) && ellipseRatio > 0 ? ellipseRatio : 1;
+          const applySineGain =
+            preserveOrientation && hasRotation && (widthSineGain !== 0 || heightSineGain !== 0);
           let transformedPoints = numericPoints.map((point) => {
             let x = point.x;
             let y = point.y;
@@ -1783,7 +1968,14 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (hasRotation && preserveOrientation) {
             const centroid = computePointCentroid(transformedPoints);
             if (centroid) {
-              const rotatedCentroid = rotatePoint(centroid.x, centroid.y, radians, originX, originY);
+              const rotatedCentroid = rotatePointWithEllipse(
+                centroid.x,
+                centroid.y,
+                radians,
+                originX,
+                originY,
+                safeEllipseRatio
+              );
               const deltaX = rotatedCentroid.x - centroid.x;
               const deltaY = rotatedCentroid.y - centroid.y;
               transformedPoints = transformedPoints.map((point) => ({
@@ -1792,13 +1984,64 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               }));
             } else {
               transformedPoints = transformedPoints.map((point) =>
-                rotatePoint(point.x, point.y, radians, originX, originY)
+                rotatePointWithEllipse(
+                  point.x,
+                  point.y,
+                  radians,
+                  originX,
+                  originY,
+                  safeEllipseRatio
+                )
               );
             }
           } else if (hasRotation) {
             transformedPoints = transformedPoints.map((point) =>
-              rotatePoint(point.x, point.y, radians, originX, originY)
+              rotatePointWithEllipse(
+                point.x,
+                point.y,
+                radians,
+                originX,
+                originY,
+                safeEllipseRatio
+              )
             );
+          }
+          if (applySineGain) {
+            const centroid = computePointCentroid(transformedPoints);
+            if (centroid) {
+              const extent = transformedPoints.reduce(
+                (acc, point) => {
+                  acc.minX = Math.min(acc.minX, point.x);
+                  acc.maxX = Math.max(acc.maxX, point.x);
+                  acc.minY = Math.min(acc.minY, point.y);
+                  acc.maxY = Math.max(acc.maxY, point.y);
+                  return acc;
+                },
+                {
+                  minX: Number.POSITIVE_INFINITY,
+                  maxX: Number.NEGATIVE_INFINITY,
+                  minY: Number.POSITIVE_INFINITY,
+                  maxY: Number.NEGATIVE_INFINITY,
+                }
+              );
+              const width = extent.maxX - extent.minX;
+              const height = extent.maxY - extent.minY;
+              const sineComponent = Math.sin(radians);
+              const scaleX =
+                Number.isFinite(width) && width !== 0
+                  ? Math.max(0, width + widthSineGain * sineComponent) / width
+                  : 1;
+              const scaleY =
+                Number.isFinite(height) && height !== 0
+                  ? Math.max(0, height + heightSineGain * sineComponent) / height
+                  : 1;
+              if (scaleX !== 1 || scaleY !== 1) {
+                transformedPoints = transformedPoints.map((point) => ({
+                  x: centroid.x + (point.x - centroid.x) * scaleX,
+                  y: centroid.y + (point.y - centroid.y) * scaleY,
+                }));
+              }
+            }
           }
           transformedPoints = transformedPoints.map((point) => ({
             x: point.x + offsetX,
@@ -1860,9 +2103,21 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const rotationOriginY = Number(transform.rotationOriginY) || 0;
           const rawScale = Number(transform.scale);
           const scale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : 1;
+          const ellipseRatio =
+            Number.isFinite(transform.ellipseRatio) && transform.ellipseRatio > 0
+              ? Number(transform.ellipseRatio)
+              : 1;
           const hasRotation = rotation !== 0;
           const hasScale = scale !== 1;
           const preserveOrientation = Boolean(transform.preserveOrientation);
+          const widthSineGain =
+            preserveOrientation && Number.isFinite(transform.widthSineGain)
+              ? Number(transform.widthSineGain)
+              : 0;
+          const heightSineGain =
+            preserveOrientation && Number.isFinite(transform.heightSineGain)
+              ? Number(transform.heightSineGain)
+              : 0;
           const rotationRadians = hasRotation ? degreesToRadians(rotation) : 0;
           if (!offsetX && !offsetY && !hasRotation && !hasScale) {
             return;
@@ -1876,22 +2131,34 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotationOriginY,
               scale,
               preserveOrientation,
+              ellipseRatio,
+              widthSineGain,
+              heightSineGain,
             });
           } else if (shape.type === "Rectangle" && shape.rectangle) {
             let originX = parseNumeric(shape.rectangle.OriginX, 0);
             let originY = parseNumeric(shape.rectangle.OriginY, 0);
             const baseRotation = parseNumeric(shape.rectangle.Rotation, 0);
+            let width = parseNumeric(shape.rectangle.Width, NaN);
+            let height = parseNumeric(shape.rectangle.Height, NaN);
             if (hasScale) {
               originX *= scale;
               originY *= scale;
+              if (Number.isFinite(width)) {
+                width *= scale;
+              }
+              if (Number.isFinite(height)) {
+                height *= scale;
+              }
             }
             if (hasRotation) {
-              const rotated = rotatePoint(
+              const rotated = rotatePointWithEllipse(
                 originX,
                 originY,
                 rotationRadians,
                 rotationOriginX,
-                rotationOriginY
+                rotationOriginY,
+                ellipseRatio
               );
               originX = rotated.x;
               originY = rotated.y;
@@ -1900,15 +2167,22 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             originY += offsetY;
             shape.rectangle.OriginX = formatReplicateNumber(originX);
             shape.rectangle.OriginY = formatReplicateNumber(originY);
-            if (hasScale) {
-              const width = parseNumeric(shape.rectangle.Width, NaN);
-              const height = parseNumeric(shape.rectangle.Height, NaN);
-              if (Number.isFinite(width)) {
-                shape.rectangle.Width = formatReplicateNumber(width * scale);
+            const applySineGain =
+              preserveOrientation && hasRotation && (widthSineGain !== 0 || heightSineGain !== 0);
+            if (applySineGain) {
+              const sineComponent = Math.sin(rotationRadians);
+              if (Number.isFinite(width) && widthSineGain !== 0) {
+                width += widthSineGain * sineComponent;
               }
-              if (Number.isFinite(height)) {
-                shape.rectangle.Height = formatReplicateNumber(height * scale);
+              if (Number.isFinite(height) && heightSineGain !== 0) {
+                height += heightSineGain * sineComponent;
               }
+            }
+            if (Number.isFinite(width) && (hasScale || applySineGain)) {
+              shape.rectangle.Width = formatReplicateNumber(width);
+            }
+            if (Number.isFinite(height) && (hasScale || applySineGain)) {
+              shape.rectangle.Height = formatReplicateNumber(height);
             }
             if (hasRotation) {
               const nextRotation = preserveOrientation
@@ -1924,12 +2198,13 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               centerY *= scale;
             }
             if (hasRotation) {
-              const rotated = rotatePoint(
+              const rotated = rotatePointWithEllipse(
                 centerX,
                 centerY,
                 rotationRadians,
                 rotationOriginX,
-                rotationOriginY
+                rotationOriginY,
+                ellipseRatio
               );
               centerX = rotated.x;
               centerY = rotated.y;
@@ -1945,6 +2220,78 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               }
             }
           }
+        }
+
+        function offsetPolygonPoints(points, delta) {
+          if (!Array.isArray(points) || !points.length || delta === 0) {
+            return null;
+          }
+          const numericPoints = points.map((point) => ({
+            x: parseNumeric(point.X, 0),
+            y: parseNumeric(point.Y, 0),
+          }));
+          const centroid = computePointCentroid(numericPoints);
+          if (!centroid) {
+            return null;
+          }
+          return numericPoints.map((point) => {
+            const deltaX = point.x - centroid.x;
+            const deltaY = point.y - centroid.y;
+            const adjustAxis = (component) => {
+              if (!Number.isFinite(component)) {
+                return 0;
+              }
+              const magnitude = Math.abs(component);
+              const nextMagnitude = Math.max(0, magnitude + delta);
+              const sign = component >= 0 ? 1 : -1;
+              return sign * nextMagnitude;
+            };
+            return {
+              X: formatReplicateNumber(centroid.x + adjustAxis(deltaX)),
+              Y: formatReplicateNumber(centroid.y + adjustAxis(deltaY)),
+            };
+          });
+        }
+
+        function applyShapeInsetOutset(shape, delta) {
+          if (!shape || delta === 0) {
+            return false;
+          }
+          if (shape.type === "Rectangle" && shape.rectangle) {
+            const width = parseNumeric(shape.rectangle.Width, NaN);
+            const height = parseNumeric(shape.rectangle.Height, NaN);
+            if (!Number.isFinite(width) || !Number.isFinite(height)) {
+              return false;
+            }
+            const originX = parseNumeric(shape.rectangle.OriginX, 0);
+            const originY = parseNumeric(shape.rectangle.OriginY, 0);
+            const centerX = originX + width / 2;
+            const centerY = originY - height / 2;
+            const nextWidth = Math.max(0, width + 2 * delta);
+            const nextHeight = Math.max(0, height + 2 * delta);
+            shape.rectangle.Width = formatReplicateNumber(nextWidth);
+            shape.rectangle.Height = formatReplicateNumber(nextHeight);
+            shape.rectangle.OriginX = formatReplicateNumber(centerX - nextWidth / 2);
+            shape.rectangle.OriginY = formatReplicateNumber(centerY + nextHeight / 2);
+            return true;
+          }
+          if (shape.type === "Circle" && shape.circle) {
+            const radius = parseNumeric(shape.circle.Radius, NaN);
+            if (!Number.isFinite(radius)) {
+              return false;
+            }
+            const nextRadius = Math.max(0, radius + delta);
+            shape.circle.Radius = formatReplicateNumber(nextRadius);
+            return true;
+          }
+          if (shape.type === "Polygon" && shape.polygon) {
+            const adjustedPoints = offsetPolygonPoints(shape.polygon.points || [], delta);
+            if (adjustedPoints) {
+              shape.polygon.points = adjustedPoints;
+              return true;
+            }
+          }
+          return false;
         }
 
         function duplicateShapeForReplication(shapeId, transform, context = {}) {
@@ -2932,6 +3279,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                 rotation: rotation * step,
                 rotationOriginX: replicatePreviewState.rotationOriginX,
                 rotationOriginY: replicatePreviewState.rotationOriginY,
+                ellipseRatio: replicatePreviewState.ellipseRatio,
+                widthSineGain: replicatePreviewState.widthSineGain,
+                heightSineGain: replicatePreviewState.heightSineGain,
                 scale: computeReplicationScale(scalePercent, step),
                 preserveOrientation,
               };
@@ -2977,6 +3327,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotation: rotation * step,
               rotationOriginX: replicatePreviewState.rotationOriginX,
               rotationOriginY: replicatePreviewState.rotationOriginY,
+              ellipseRatio: replicatePreviewState.ellipseRatio,
+              widthSineGain: replicatePreviewState.widthSineGain,
+              heightSineGain: replicatePreviewState.heightSineGain,
               scale: computeReplicationScale(scalePercent, step),
               preserveOrientation,
             };
@@ -3171,6 +3524,18 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateCasePrefixInput.placeholder = resolveReplicatePrefixPlaceholderLabel();
         }
 
+        function updateReplicateSineGainAvailability({ syncPreview = false } = {}) {
+          const enabled = Boolean(replicatePreserveOrientationInput?.checked);
+          [replicateWidthSineGainInput, replicateHeightSineGainInput].forEach((input) => {
+            if (input) {
+              input.disabled = !enabled;
+            }
+          });
+          if (syncPreview) {
+            updateReplicatePreview();
+          }
+        }
+
         function populateReplicateFieldsetOptions(preferredIndex = 0) {
           if (!replicateFieldsetSelect) {
             return -1;
@@ -3316,6 +3681,15 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (replicateRotationOriginYInput) {
             replicateRotationOriginYInput.value = replicateFormState.rotationOriginY ?? 0;
           }
+          if (replicateEllipseRatioInput) {
+            replicateEllipseRatioInput.value = replicateFormState.ellipseRatio ?? 1;
+          }
+          if (replicateWidthSineGainInput) {
+            replicateWidthSineGainInput.value = replicateFormState.widthSineGain ?? 0;
+          }
+          if (replicateHeightSineGainInput) {
+            replicateHeightSineGainInput.value = replicateFormState.heightSineGain ?? 0;
+          }
           if (replicateScalePercentInput) {
             replicateScalePercentInput.value = replicateFormState.scalePercent ?? 0;
           }
@@ -3329,6 +3703,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               replicateFormState.preserveOrientation
             );
           }
+          updateReplicateSineGainAvailability();
           if (replicateStaticInputsAutoInput) {
             replicateStaticInputsAutoInput.checked = Boolean(
               replicateFormState.autoStaticInputs
@@ -3409,9 +3784,17 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const rotation = parseNumeric(replicateRotationInput?.value, 0) || 0;
           const rotationOriginX = parseNumeric(replicateRotationOriginXInput?.value, 0) || 0;
           const rotationOriginY = parseNumeric(replicateRotationOriginYInput?.value, 0) || 0;
+          const ellipseRatio = Math.max(
+            0.01,
+            parseNumeric(replicateEllipseRatioInput?.value, 1) || 1
+          );
+          const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
+          const rawWidthSineGain = parseNumeric(replicateWidthSineGainInput?.value, 0) || 0;
+          const rawHeightSineGain = parseNumeric(replicateHeightSineGainInput?.value, 0) || 0;
+          const widthSineGain = preserveOrientation ? rawWidthSineGain : 0;
+          const heightSineGain = preserveOrientation ? rawHeightSineGain : 0;
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
-          const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
           const prefixInput = replicateCasePrefixInput?.value?.trim();
           const casePrefix = prefixInput || resolveReplicatePrefixFallback();
           replicateFormState.fieldsetIndex = fieldsetIndex;
@@ -3421,6 +3804,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateFormState.rotation = rotation;
           replicateFormState.rotationOriginX = rotationOriginX;
           replicateFormState.rotationOriginY = rotationOriginY;
+          replicateFormState.ellipseRatio = ellipseRatio;
+          replicateFormState.widthSineGain = widthSineGain;
+          replicateFormState.heightSineGain = heightSineGain;
           replicateFormState.scalePercent = scalePercent;
           replicateFormState.casePrefix = casePrefix;
           replicateFormState.includeCutouts = includeCutouts;
@@ -3434,6 +3820,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotation: rotation * step,
               rotationOriginX,
               rotationOriginY,
+              ellipseRatio,
+              widthSineGain,
+              heightSineGain,
               scale: computeReplicationScale(scalePercent, step),
               preserveOrientation,
             };
@@ -3518,9 +3907,17 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const rotation = parseNumeric(replicateRotationInput?.value, 0) || 0;
           const rotationOriginX = parseNumeric(replicateRotationOriginXInput?.value, 0) || 0;
           const rotationOriginY = parseNumeric(replicateRotationOriginYInput?.value, 0) || 0;
+          const ellipseRatio = Math.max(
+            0.01,
+            parseNumeric(replicateEllipseRatioInput?.value, 1) || 1
+          );
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
           const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
+          const rawWidthSineGain = parseNumeric(replicateWidthSineGainInput?.value, 0) || 0;
+          const rawHeightSineGain = parseNumeric(replicateHeightSineGainInput?.value, 0) || 0;
+          const widthSineGain = preserveOrientation ? rawWidthSineGain : 0;
+          const heightSineGain = preserveOrientation ? rawHeightSineGain : 0;
           const autoStaticInputs = Boolean(replicateStaticInputsAutoInput?.checked);
           const includePreviousFields = Boolean(replicateIncludePreviousFieldsInput?.checked);
           let speedRangeMinStep = parseInt(replicateSpeedMinStepInput?.value ?? "0", 10);
@@ -3540,6 +3937,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           replicateFormState.rotation = rotation;
           replicateFormState.rotationOriginX = rotationOriginX;
           replicateFormState.rotationOriginY = rotationOriginY;
+          replicateFormState.ellipseRatio = ellipseRatio;
+          replicateFormState.widthSineGain = widthSineGain;
+          replicateFormState.heightSineGain = heightSineGain;
           replicateFormState.scalePercent = scalePercent;
           replicateFormState.includeCutouts = includeCutouts;
           replicateFormState.preserveOrientation = preserveOrientation;
@@ -3594,6 +3994,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
                 rotation: rotation * step,
                 rotationOriginX,
                 rotationOriginY,
+                ellipseRatio,
+                widthSineGain,
+                heightSineGain,
                 scale: computeReplicationScale(scalePercent, step),
                 preserveOrientation,
               };
@@ -3748,9 +4151,15 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           const rotation = parseNumeric(replicateRotationInput?.value, 0) || 0;
           const rotationOriginX = parseNumeric(replicateRotationOriginXInput?.value, 0) || 0;
           const rotationOriginY = parseNumeric(replicateRotationOriginYInput?.value, 0) || 0;
+          const ellipseRatio = Math.max(
+            0.01,
+            parseNumeric(replicateEllipseRatioInput?.value, 1) || 1
+          );
           const scalePercent = parseNumeric(replicateScalePercentInput?.value, 0) || 0;
           const includeCutouts = Boolean(replicateIncludeCutoutsInput?.checked);
           const preserveOrientation = Boolean(replicatePreserveOrientationInput?.checked);
+          const widthSineGain = parseNumeric(replicateWidthSineGainInput?.value, 0) || 0;
+          const heightSineGain = parseNumeric(replicateHeightSineGainInput?.value, 0) || 0;
           let speedRangeMinStep = parseInt(replicateSpeedMinStepInput?.value ?? "0", 10);
           let speedRangeMaxStep = parseInt(replicateSpeedMaxStepInput?.value ?? "0", 10);
           if (!Number.isFinite(speedRangeMinStep)) {
@@ -3759,6 +4168,8 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (!Number.isFinite(speedRangeMaxStep)) {
             speedRangeMaxStep = 0;
           }
+          const effectiveWidthSineGain = preserveOrientation ? widthSineGain : 0;
+          const effectiveHeightSineGain = preserveOrientation ? heightSineGain : 0;
           if (target === "case") {
             const caseIndexes = captureSelectedReplicateCases();
             return {
@@ -3770,6 +4181,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               rotation,
               rotationOriginX,
               rotationOriginY,
+              ellipseRatio,
+              widthSineGain: effectiveWidthSineGain,
+              heightSineGain: effectiveHeightSineGain,
               scalePercent,
               includeCutouts,
               preserveOrientation,
@@ -3803,6 +4217,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             rotation,
             rotationOriginX,
             rotationOriginY,
+            ellipseRatio,
+            widthSineGain: effectiveWidthSineGain,
+            heightSineGain: effectiveHeightSineGain,
             scalePercent,
             includeCutouts,
             preserveOrientation,
@@ -3934,6 +4351,7 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           if (!triorbShapesContainer) {
             return;
           }
+          syncBulkEditSelections();
           if (!triorbShapes.length) {
             triOrbShapeCardCache.clear();
             triOrbShapesListInitialized = false;
@@ -5991,14 +6409,18 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           scanDeviceAttrs = null,
           fieldsetDeviceAttrs = null,
           includeUserFieldIds = true,
+          deviceIndexStrategy = "zero",
         } = {}) {
+          normalizeScanPlaneDeviceIndexes(deviceIndexStrategy);
           // TriOrb Shapes やフィールド参照は UI 操作で逐次変化するため、
           // 保存直前にレジストリを再構築して ID → Shape の引き当て漏れを防ぐ。
           rebuildTriOrbShapeRegistry();
 
           const figure = currentFigure || defaultFigure;
           const fileInfoLines = buildFileInfoLines();
-          const scanPlaneLines = buildScanPlanesXml(scanDeviceAttrs);
+          const scanPlaneLines = buildScanPlanesXml(scanDeviceAttrs, {
+            deviceIndexStrategy,
+          });
           const fieldsetLines = buildFieldsetsXml(fieldsetDeviceAttrs, {
             includeUserFieldIds,
           });
@@ -6031,6 +6453,23 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return lines;
         }
 
+        function normalizeScanPlaneDeviceIndexes(strategy = "zero") {
+          scanPlanes.forEach((plane) => {
+            (plane.devices || []).forEach((device, deviceIndex) => {
+              if (!device || typeof device !== "object") {
+                return;
+              }
+              const attrs = device.attributes || {};
+              if (strategy === "sequential") {
+                attrs.Index = String(deviceIndex);
+              } else if (strategy === "zero") {
+                attrs.Index = "0";
+              }
+              device.attributes = attrs;
+            });
+          });
+        }
+
         function buildLegacyXml() {
           const lines = buildBaseSdImportExportLines({
             includeUserFieldIds: false,
@@ -6039,7 +6478,9 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
         }
 
         function buildTriOrbXml() {
-          const lines = buildBaseSdImportExportLines().slice();
+          const lines = buildBaseSdImportExportLines({
+            deviceIndexStrategy: "sequential",
+          }).slice();
           lines.push("");
           if (!triorbSource) {
             triorbSource = "TriOrbAware";
@@ -6089,12 +6530,23 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
 
         function buildDeviceAttributeString(
           attrs,
-          { keepDeviceName = false, includeIndex = true } = {}
+          {
+            keepDeviceName = false,
+            includeIndex = true,
+            deviceIndex = 0,
+            deviceIndexStrategy = "zero",
+          } = {}
         ) {
           if (!attrs) return "";
           const sanitized = { ...attrs };
           if (includeIndex) {
-            sanitized.Index = "0";
+            if (deviceIndexStrategy === "sequential") {
+              sanitized.Index = String(deviceIndex ?? 0);
+            } else if (deviceIndexStrategy === "preserve" && attrs.Index !== undefined) {
+              sanitized.Index = String(attrs.Index);
+            } else {
+              sanitized.Index = "0";
+            }
           } else {
             delete sanitized.Index;
           }
@@ -6109,7 +6561,10 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return rawName.replace(/[^a-zA-Z0-9._-]/g, "_");
         }
 
-        function buildScanPlanesXml(scanDeviceAttrs = null) {
+        function buildScanPlanesXml(
+          scanDeviceAttrs = null,
+          { deviceIndexStrategy = "zero" } = {}
+        ) {
           if (!scanPlanes.length) {
             return ["    <!-- ScanPlane not set -->"];
           }
@@ -6125,9 +6580,11 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
               : plane.devices || [];
             lines.push("      <Devices>");
             if (devicesToRender.length) {
-              devicesToRender.forEach((device) => {
+              devicesToRender.forEach((device, deviceIndex) => {
                 const attrs = buildDeviceAttributeString(device.attributes, {
                   keepDeviceName: true,
+                  deviceIndex,
+                  deviceIndexStrategy,
                 });
                 lines.push(`        <Device${attrs ? " " + attrs : ""} />`);
               });
@@ -7398,21 +7855,31 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
             return points;
           }
 
-          function parseSvgPathToPolygons(d = "") {
-            const trimmed = (d || "").trim();
-            const pathWarnings = new Set();
-            if (!trimmed) {
-              return { polygons: [], warnings: [] };
-            }
-
-            const fallback = parseSvgPathToPolygonsLegacy(trimmed, pathWarnings);
-            if (fallback.polygons.length) {
-              return { polygons: fallback.polygons, warnings: Array.from(pathWarnings) };
-            }
-
-            const sampled = sampleSvgPathToPolygon(trimmed, pathWarnings);
-            return { polygons: sampled, warnings: Array.from(pathWarnings) };
+        function parseSvgPathToPolygons(d = "") {
+          const trimmed = (d || "").trim();
+          const pathWarnings = new Set();
+          if (!trimmed) {
+            return { polygons: [], warnings: [] };
           }
+
+          const unsupportedCommands = (trimmed.match(/[AaCcQqSsTt]/g) || []).map((command) =>
+            command.toUpperCase()
+          );
+          if (unsupportedCommands.length) {
+            unsupportedCommands.forEach((command) => pathWarnings.add(`path (${command})`));
+          }
+
+          const fallback =
+            unsupportedCommands.length > 0
+              ? { polygons: [] }
+              : parseSvgPathToPolygonsLegacy(trimmed, pathWarnings);
+          if (fallback.polygons.length && pathWarnings.size === 0) {
+            return { polygons: fallback.polygons, warnings: Array.from(pathWarnings) };
+          }
+
+          const sampled = sampleSvgPathToPolygon(trimmed, pathWarnings);
+          return { polygons: sampled, warnings: Array.from(pathWarnings) };
+        }
 
           function sampleSvgPathToPolygon(d, pathWarnings) {
             try {
@@ -7771,34 +8238,34 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           return result;
         }
 
-          function normalizeSvgShapeEntry(entry, index) {
-            const shapeType = entry.type || "Polygon";
-            const shape = createDefaultTriOrbShape(triorbShapes.length + index, shapeType);
-            shape.id = entry.id || shape.id || createShapeId();
-            shape.name = entry.name || `SVG ${shapeType} ${index + 1}`;
-            shape.fieldtype = "ProtectiveSafeBlanking";
-            shape.kind = "Field";
-            shape.type = shapeType;
-            if (shapeType === "Polygon" && entry.polygon) {
-              shape.polygon = {
-                Type: "Field",
-                points: invertSvgPoints(entry.polygon.points || []),
-              };
-            } else if (shapeType === "Rectangle" && entry.rectangle) {
-              shape.rectangle = {
-                ...shape.rectangle,
-                ...entry.rectangle,
-                OriginY: invertSvgNumber(entry.rectangle?.OriginY),
-                Type: "Field",
-              };
-            } else if (shapeType === "Circle" && entry.circle) {
-              shape.circle = {
-                ...shape.circle,
-                ...entry.circle,
-                CenterY: invertSvgNumber(entry.circle?.CenterY),
-                Type: "Field",
-              };
-            }
+        function normalizeSvgShapeEntry(entry, index) {
+          const shapeType = entry.type || "Polygon";
+          const shape = createDefaultTriOrbShape(triorbShapes.length + index, shapeType);
+          shape.id = entry.id || shape.id || createShapeId();
+          shape.name = entry.name || `SVG ${shapeType} ${index + 1}`;
+          shape.fieldtype = "ProtectiveSafeBlanking";
+          shape.kind = "Field";
+          shape.type = shapeType;
+          if (shapeType === "Polygon" && entry.polygon) {
+            shape.polygon = {
+              Type: "Field",
+              points: invertSvgPoints(entry.polygon.points || []),
+            };
+          } else if (shapeType === "Rectangle" && entry.rectangle) {
+            shape.rectangle = {
+              ...shape.rectangle,
+              ...entry.rectangle,
+              OriginY: invertSvgNumber(entry.rectangle?.OriginY),
+              Type: "Field",
+            };
+          } else if (shapeType === "Circle" && entry.circle) {
+            shape.circle = {
+              ...shape.circle,
+              ...entry.circle,
+              CenterY: invertSvgNumber(entry.circle?.CenterY),
+              Type: "Field",
+            };
+          }
           applyShapeKind(shape, "Field");
           return shape;
         }
@@ -7821,6 +8288,174 @@ function buildCircleTrace(circle, colorSet, label, fieldType, fieldsetIndex, fie
           });
           invalidateTriOrbShapeCaches();
           return normalizedShapes.length;
+        }
+
+        function partitionSvgShapesByName(entries = []) {
+          const existingByName = new Map(
+            triorbShapes.map((shape) => [shape?.name, shape]).filter(([name]) => Boolean(name))
+          );
+          const duplicates = [];
+          const uniques = [];
+          (entries || []).forEach((entry) => {
+            const existing = entry?.name ? existingByName.get(entry.name) : null;
+            if (existing) {
+              duplicates.push({ entry, existing });
+            } else {
+              uniques.push(entry);
+            }
+          });
+          return { duplicates, uniques };
+        }
+
+        function overwriteTriOrbShapeWithSvgEntry(existingShape, entry) {
+          if (!existingShape || !entry) {
+            return false;
+          }
+          const shapeIndex = triorbShapes.indexOf(existingShape);
+          if (shapeIndex < 0) {
+            return false;
+          }
+          const normalized = normalizeSvgShapeEntry(entry, shapeIndex);
+          const mergedShape = {
+            ...normalized,
+            id: existingShape.id,
+            name: existingShape.name,
+            fieldtype: existingShape.fieldtype,
+            kind: existingShape.kind || normalized.kind,
+            visible: existingShape.visible !== false,
+          };
+          applyShapeKind(mergedShape, mergedShape.kind);
+          triorbShapes[shapeIndex] = mergedShape;
+          registerTriOrbShapeLookup(mergedShape, shapeIndex);
+          return true;
+        }
+
+        function applySvgImportChanges({ additions = [], overwrites = [], warnings = [], fileName = "" } = {}) {
+          let overwrittenCount = 0;
+          overwrites.forEach(({ entry, existing }) => {
+            if (overwriteTriOrbShapeWithSvgEntry(existing, entry)) {
+              overwrittenCount += 1;
+            }
+          });
+          const addedCount = addSvgShapesToState(additions);
+          rebuildTriOrbShapeRegistry();
+          renderTriOrbShapes();
+          renderTriOrbShapeCheckboxes();
+          renderFieldsets();
+          renderFigure();
+          if (warnings.length) {
+            alert(`未対応の SVG 要素: ${warnings.join(", ")}`);
+          }
+          const warningSuffix = warnings.length ? `（未対応: ${warnings.join(", ")}）` : "";
+          setStatus(
+            `${fileName} から ${overwrittenCount} 件を上書きし、${addedCount} 件の Shape をインポートしました${warningSuffix}。`,
+            warnings.length ? "warning" : "ok"
+          );
+        }
+
+        function openSvgImportModal({ fileName, warnings = [], duplicates = [], uniques = [] } = {}) {
+          if (!svgImportModal || !svgImportDuplicateList) {
+            applySvgImportChanges({ additions: uniques.concat(duplicates.map((item) => item.entry)), warnings, fileName });
+            return;
+          }
+          pendingSvgImportContext = { fileName, warnings, duplicates, additions: uniques };
+          svgImportDuplicateList.innerHTML = duplicates
+            .map(({ entry, existing }) => {
+              const shapeName = entry?.name || existing?.name || "Shape";
+              const importedType = entry?.type || "Polygon";
+              const existingType = existing?.type || "Polygon";
+              const safeName = escapeHtml(existing?.name || "");
+              return `
+                <div class="svg-import-duplicate-item" data-shape-name="${safeName}">
+                  <div class="svg-import-duplicate-actions">
+                    <label class="svg-import-duplicate-toggle">
+                      <input type="checkbox" data-shape-name="${safeName}" data-role="import" checked />
+                      <span>Import</span>
+                    </label>
+                    <label class="svg-import-duplicate-toggle">
+                      <input type="checkbox" data-shape-name="${safeName}" data-role="overwrite" checked />
+                      <span>Overwrite</span>
+                    </label>
+                  </div>
+                  <div>
+                    <div class="svg-import-duplicate-name">${escapeHtml(shapeName)}</div>
+                    <div class="svg-import-duplicate-desc">既存: ${escapeHtml(existingType)} / インポート: ${escapeHtml(importedType)}</div>
+                  </div>
+                </div>
+              `;
+            })
+            .join("");
+          svgImportModal.classList.add("active");
+          svgImportModal.setAttribute("aria-hidden", "false");
+          setStatus(
+            `${fileName || "SVG"} のインポート: 同名の Shape が見つかりました。インポート/上書きの対象を選択してください。`,
+            "warning"
+          );
+        }
+
+        function closeSvgImportModal() {
+          if (svgImportModal) {
+            svgImportModal.classList.remove("active");
+            svgImportModal.setAttribute("aria-hidden", "true");
+          }
+          if (svgImportDuplicateList) {
+            svgImportDuplicateList.innerHTML = "";
+          }
+          pendingSvgImportContext = null;
+        }
+
+        function applyPendingSvgImport() {
+          if (!pendingSvgImportContext) {
+            closeSvgImportModal();
+            return;
+          }
+          const { duplicates = [], additions = [], warnings = [], fileName = "" } = pendingSvgImportContext;
+          const duplicateStates = new Map(
+            Array.from(svgImportDuplicateList?.querySelectorAll(".svg-import-duplicate-item") || []).map((item) => {
+              const name = item.dataset.shapeName || "";
+              const importInput = item.querySelector("input[data-role='import']");
+              const overwriteInput = item.querySelector("input[data-role='overwrite']");
+              return [
+                name,
+                {
+                  importChecked: importInput ? importInput.checked : true,
+                  overwriteChecked: overwriteInput ? overwriteInput.checked : false,
+                },
+              ];
+            })
+          );
+          const overwriteTargets = [];
+          const additionTargets = [...additions];
+          duplicates.forEach((item) => {
+            const existingName = item?.existing?.name || "";
+            const state = duplicateStates.get(existingName) || { importChecked: true, overwriteChecked: true };
+            if (!state.importChecked) {
+              return;
+            }
+            if (state.overwriteChecked && existingName) {
+              overwriteTargets.push(item);
+              return;
+            }
+            additionTargets.push(item.entry);
+          });
+          applySvgImportChanges({ additions: additionTargets, overwrites: overwriteTargets, warnings, fileName });
+          closeSvgImportModal();
+        }
+
+        function handleSvgImportResult(fileName, shapes, warnings) {
+          if (!Array.isArray(shapes) || !shapes.length) {
+            setStatus(
+              `${fileName} に取り込める Polygon / Rectangle / Circle が見つかりませんでした。`,
+              "warning"
+            );
+            return;
+          }
+          const { duplicates, uniques } = partitionSvgShapesByName(shapes);
+          if (duplicates.length) {
+            openSvgImportModal({ fileName, warnings, duplicates, uniques });
+            return;
+          }
+          applySvgImportChanges({ additions: shapes, warnings, fileName });
         }
 
         function parseXmlToFigure(xmlText) {
@@ -9875,6 +10510,7 @@ function parsePolygonTrace(doc) {
 
         function renderCasetableCases() {
           syncEvalCaseAssignments();
+          syncBulkEditSelections();
           if (casetableCaseCountLabel) {
             casetableCaseCountLabel.textContent = `${casetableCases.length} / ${casetableCasesLimit}`;
           }
@@ -10068,6 +10704,239 @@ function parsePolygonTrace(doc) {
             </div>`;
         }
 
+        function syncBulkEditSelections() {
+          const maxCaseIndex = casetableCases.length - 1;
+          bulkEditState.selectedCases.forEach((caseIndex) => {
+            if (caseIndex < 0 || caseIndex > maxCaseIndex) {
+              bulkEditState.selectedCases.delete(caseIndex);
+            }
+          });
+          const maxShapeIndex = triorbShapes.length - 1;
+          bulkEditState.selectedShapes.forEach((shapeIndex) => {
+            if (shapeIndex < 0 || shapeIndex > maxShapeIndex) {
+              bulkEditState.selectedShapes.delete(shapeIndex);
+            }
+          });
+        }
+
+        function renderBulkEditCaseToggles() {
+          if (!bulkEditCaseToggles) {
+            return;
+          }
+          if (!casetableCases.length) {
+            bulkEditCaseToggles.innerHTML = '<p class="toggle-pill-empty">No cases available.</p>';
+            return;
+          }
+          bulkEditCaseToggles.innerHTML = casetableCases
+            .map((caseData, caseIndex) => {
+              const isActive = bulkEditState.selectedCases.has(caseIndex);
+              const name = caseData.attributes?.Name || buildCaseName(caseIndex);
+              return `
+                <button
+                  type="button"
+                  class="toggle-pill-btn${isActive ? " active" : ""}"
+                  data-bulk-toggle="case"
+                  data-index="${caseIndex}"
+                  aria-pressed="${isActive}"
+                >
+                  ${escapeHtml(name)}
+                </button>`;
+            })
+            .join("");
+        }
+
+        function renderBulkEditShapeToggles() {
+          if (!bulkEditShapeToggles) {
+            return;
+          }
+          if (!triorbShapes.length) {
+            bulkEditShapeToggles.innerHTML = '<p class="toggle-pill-empty">No shapes available.</p>';
+            return;
+          }
+          bulkEditShapeToggles.innerHTML = triorbShapes
+            .map((shape, shapeIndex) => {
+              const isActive = bulkEditState.selectedShapes.has(shapeIndex);
+              const name = shape.name || shape.id || `Shape ${shapeIndex + 1}`;
+              return `
+                <button
+                  type="button"
+                  class="toggle-pill-btn${isActive ? " active" : ""}"
+                  data-bulk-toggle="shape"
+                  data-index="${shapeIndex}"
+                  aria-pressed="${isActive}"
+                >
+                  ${shapeIndex + 1}. ${escapeHtml(name)}
+                </button>`;
+            })
+            .join("");
+        }
+
+          function resetBulkEditForm() {
+            bulkEditState.selectedCases.clear();
+            bulkEditState.selectedShapes.clear();
+            bulkEditState.lastCaseIndex = null;
+            bulkEditState.lastShapeIndex = null;
+            if (bulkStaticNumberInput) {
+              bulkStaticNumberInput.value = "1";
+            }
+            if (bulkStaticValueSelect) {
+              bulkStaticValueSelect.value = "DontCare";
+            }
+            [
+              bulkShapeOutsetInput,
+              bulkShapeMoveXInput,
+              bulkShapeMoveYInput,
+            ].forEach((input) => {
+              if (input) {
+                input.value = "0";
+            }
+          });
+          renderBulkEditCaseToggles();
+          renderBulkEditShapeToggles();
+          renderFigure();
+        }
+
+        function handleBulkToggleClick(event) {
+          const button = event.target.closest("[data-bulk-toggle]");
+          if (!button) {
+            return;
+          }
+          const targetType = button.dataset.bulkToggle;
+          const index = Number(button.dataset.index);
+          if (!Number.isInteger(index)) {
+            return;
+          }
+          const isCase = targetType === "case";
+          const maxIndex = isCase ? casetableCases.length - 1 : triorbShapes.length - 1;
+          if (index < 0 || index > maxIndex) {
+            return;
+          }
+          const selection = isCase ? bulkEditState.selectedCases : bulkEditState.selectedShapes;
+          const lastKey = isCase ? "lastCaseIndex" : "lastShapeIndex";
+          const lastIndex = bulkEditState[lastKey];
+          if (event.shiftKey && Number.isInteger(lastIndex)) {
+            const start = Math.max(0, Math.min(lastIndex, index));
+            const end = Math.min(maxIndex, Math.max(lastIndex, index));
+            for (let cursor = start; cursor <= end; cursor += 1) {
+              selection.add(cursor);
+            }
+          } else if (selection.has(index)) {
+            selection.delete(index);
+          } else {
+            selection.add(index);
+          }
+          bulkEditState[lastKey] = index;
+          if (isCase) {
+            renderBulkEditCaseToggles();
+          } else {
+            renderBulkEditShapeToggles();
+          }
+          renderFigure();
+        }
+
+        function applyBulkCaseStaticInputs(staticIndex, staticValue) {
+          let updated = 0;
+          bulkEditState.selectedCases.forEach((caseIndex) => {
+            const caseData = casetableCases[caseIndex];
+            if (!caseData) {
+              return;
+            }
+            caseData.staticInputs = normalizeStaticInputs(caseData.staticInputs);
+            updateStaticInputValue(caseIndex, staticIndex, staticValue);
+            updated += 1;
+          });
+          return updated;
+        }
+
+        function applyBulkShapeAdjustments(delta, offsetX, offsetY) {
+          let changedCount = 0;
+          bulkEditState.selectedShapes.forEach((shapeIndex) => {
+            const shape = triorbShapes[shapeIndex];
+            if (!shape) {
+              return;
+            }
+            let changed = false;
+            if (delta !== 0) {
+              changed = applyShapeInsetOutset(shape, delta) || changed;
+            }
+            if (offsetX || offsetY) {
+              applyReplicationTransform(shape, { offsetX, offsetY });
+              changed = true;
+            }
+            if (changed) {
+              changedCount += 1;
+            }
+          });
+          if (changedCount) {
+            invalidateTriOrbShapeCaches();
+            renderTriOrbShapes();
+            renderTriOrbShapeCheckboxes();
+            renderFieldsets();
+            renderFigure();
+          }
+          return changedCount;
+        }
+
+        function applyBulkEditChanges() {
+          syncBulkEditSelections();
+          let staticNumber = Math.round(parseNumeric(bulkStaticNumberInput?.value, 1) || 1);
+          staticNumber = Math.min(casetableConfigurationStaticInputsCount, Math.max(1, staticNumber));
+          if (bulkStaticNumberInput) {
+            bulkStaticNumberInput.value = String(staticNumber);
+          }
+          const staticValue = bulkStaticValueSelect?.value || "DontCare";
+          const { delta, offsetX: moveX, offsetY: moveY } = resolveBulkShapeTransform();
+          const updatedCases = applyBulkCaseStaticInputs(staticNumber - 1, staticValue);
+          const updatedShapes = applyBulkShapeAdjustments(delta, moveX, moveY);
+          if (!updatedCases && !updatedShapes) {
+            setStatus("一括編集の対象が選択されていません。", "warning");
+            return;
+          }
+          if (updatedCases) {
+            renderCasetableCases();
+          }
+          const messages = [];
+          if (updatedCases) {
+            messages.push(`Cases: ${updatedCases} 件更新`);
+          }
+          if (updatedShapes) {
+            messages.push(`Shapes: ${updatedShapes} 件更新`);
+          }
+          setStatus(messages.join(" / "), "ok");
+          closeBulkEditModal();
+        }
+
+        function resetBulkEditModalTransform() {
+          bulkEditModalOffsetX = 0;
+          bulkEditModalOffsetY = 0;
+          bulkEditModalLastDx = 0;
+          bulkEditModalLastDy = 0;
+          if (bulkEditModalWindow) {
+            bulkEditModalWindow.style.transform = "translate(0px, 0px)";
+            bulkEditModalWindow.style.width = "";
+            bulkEditModalWindow.style.height = "";
+          }
+        }
+
+        function openBulkEditModal() {
+          if (!bulkEditModal) {
+            return;
+          }
+          resetBulkEditForm();
+          resetBulkEditModalTransform();
+          bulkEditModal.classList.add("active");
+          bulkEditModal.setAttribute("aria-hidden", "false");
+        }
+
+        function closeBulkEditModal() {
+          if (!bulkEditModal) {
+            return;
+          }
+          resetBulkEditForm();
+          bulkEditModal.classList.remove("active");
+          bulkEditModal.setAttribute("aria-hidden", "true");
+        }
+
         function renderFieldsetCheckboxes() {
           if (!fieldsetCheckboxes) {
             return;
@@ -10246,6 +11115,36 @@ function parsePolygonTrace(doc) {
           );
         }
 
+        function deleteVisibleCases() {
+          ensureCaseToggleStateLength();
+          const activeIndexes = caseToggleStates
+            .map((isActive, index) => (isActive ? index : -1))
+            .filter((index) => index >= 0);
+          if (!activeIndexes.length) {
+            setStatus("表示中の Case はありません。", "warning");
+            return;
+          }
+          if (activeIndexes.length >= casetableCases.length) {
+            setStatus("At least one Case is required.", "warning");
+            return;
+          }
+          const sortedIndexes = activeIndexes.sort((a, b) => b - a);
+          sortedIndexes.forEach((caseIndex) => {
+            casetableCases.splice(caseIndex, 1);
+            caseToggleStates.splice(caseIndex, 1);
+          });
+          casetableCases.forEach((caseEntry, index) => {
+            if (caseEntry?.attributes) {
+              caseEntry.attributes.DisplayOrder = String(index);
+            }
+          });
+          casetableEvals = normalizeCasetableEvals(casetableEvals, casetableCases.length);
+          renderCasetableCases();
+          renderCasetableEvals();
+          refreshCaseFieldAssignments({ rerenderCaseToggles: true });
+          setStatus(`${activeIndexes.length} 件の表示中 Case を削除しました。`, "ok");
+        }
+
         if (caseCheckboxes) {
           caseCheckboxes.addEventListener("click", (event) => {
             const button = event.target.closest(".toggle-pill-btn");
@@ -10269,6 +11168,10 @@ function parsePolygonTrace(doc) {
           caseUncheckAllBtn.addEventListener("click", () => {
             setAllCaseToggles(false);
           });
+        }
+
+        if (caseDeleteVisibleBtn) {
+          caseDeleteVisibleBtn.addEventListener("click", deleteVisibleCases);
         }
 
         if (fieldsetCheckboxes) {
@@ -10315,6 +11218,10 @@ function parsePolygonTrace(doc) {
           });
         }
 
+        if (fieldDeleteVisibleBtn) {
+          fieldDeleteVisibleBtn.addEventListener("click", deleteVisibleFields);
+        }
+
         if (triorbShapeCheckboxes) {
           triorbShapeCheckboxes.addEventListener("click", (event) => {
             const button = event.target.closest(".toggle-pill-btn");
@@ -10346,6 +11253,10 @@ function parsePolygonTrace(doc) {
           triorbShapeUncheckAllBtn.addEventListener("click", () => {
             setTriOrbShapeVisibility(false);
           });
+        }
+
+        if (triorbShapeDeleteVisibleBtn) {
+          triorbShapeDeleteVisibleBtn.addEventListener("click", deleteVisibleTriOrbShapes);
         }
 
         function ensureInlineGeometryForShape(field, shape) {
@@ -10649,6 +11560,47 @@ function parsePolygonTrace(doc) {
           renderFigure();
         }
 
+        function deleteVisibleFields() {
+          let removed = 0;
+          let preservedFieldsets = 0;
+          fieldsets.forEach((fieldset) => {
+            if (!fieldset || fieldset.visible === false || !Array.isArray(fieldset.fields)) {
+              return;
+            }
+            const remaining = [];
+            fieldset.fields.forEach((field) => {
+              const hasVisibleShape = (field.shapeRefs || []).some((ref) => {
+                const shape = findTriOrbShapeById(ref?.shapeId);
+                return shape && shape.visible !== false;
+              });
+              if (!hasVisibleShape) {
+                remaining.push(field);
+              }
+            });
+            if (!remaining.length && fieldset.fields.length > 0) {
+              remaining.push(fieldset.fields[0]);
+              preservedFieldsets += 1;
+            }
+            removed += fieldset.fields.length - remaining.length;
+            fieldset.fields = remaining;
+          });
+          if (!removed) {
+            setStatus("表示中の Field はありません。", "warning");
+            return;
+          }
+          renderFieldsets();
+          refreshCaseFieldAssignments({ rerenderCaseToggles: true });
+          renderFigure();
+          if (preservedFieldsets > 0) {
+            setStatus(
+              `${removed} 件の表示中 Field を削除しました (${preservedFieldsets} 件の Fieldset では 1 件を保持しました)。`,
+              "warning"
+            );
+          } else {
+            setStatus(`${removed} 件の表示中 Field を削除しました。`, "ok");
+          }
+        }
+
         function renderTriOrbShapeCheckboxes() {
           if (!triorbShapeCheckboxes) {
             return;
@@ -10683,6 +11635,32 @@ function parsePolygonTrace(doc) {
           renderFigure();
         }
 
+        function deleteVisibleTriOrbShapes() {
+          const visibleShapes = triorbShapes
+            .map((shape, index) => ({ shape, index }))
+            .filter(({ shape }) => shape && shape.visible !== false);
+          if (!visibleShapes.length) {
+            setStatus("表示中の Shape はありません。", "warning");
+            return;
+          }
+          const shapeIdsToRemove = new Set(visibleShapes.map(({ shape }) => shape.id));
+          triorbShapes = triorbShapes.filter((shape) => !shapeIdsToRemove.has(shape?.id));
+          rebuildTriOrbShapeRegistry();
+          invalidateTriOrbShapeCaches();
+          fieldsets.forEach((fieldset) => {
+            (fieldset.fields || []).forEach((field) => {
+              if (Array.isArray(field.shapeRefs)) {
+                field.shapeRefs = field.shapeRefs.filter((ref) => !shapeIdsToRemove.has(ref.shapeId));
+              }
+            });
+          });
+          renderTriOrbShapes();
+          renderTriOrbShapeCheckboxes();
+          renderFieldsets();
+          renderFigure();
+          setStatus(`${visibleShapes.length} 件の表示中 Shape を削除しました。`, "ok");
+        }
+
         function removeTriOrbShape(shapeIndex) {
           if (!Number.isFinite(shapeIndex) || shapeIndex < 0 || shapeIndex >= triorbShapes.length) {
             return;
@@ -10708,7 +11686,7 @@ function parsePolygonTrace(doc) {
         if (saveTriOrbBtn) {
           saveTriOrbBtn.addEventListener("click", () => {
             const xml = buildTriOrbXml();
-            downloadXml(xml);
+            downloadXml(xml, `TriOrb_${Date.now()}.sgexml`);
             setStatus("TriOrb XML downloaded.");
           });
         }
@@ -10824,6 +11802,16 @@ function parsePolygonTrace(doc) {
         let replicateModalLastDy = 0;
         let isReplicateModalDragging = false;
         let isReplicateModalResizing = false;
+        let bulkEditModalOffsetX = 0;
+        let bulkEditModalOffsetY = 0;
+        let bulkEditModalDragStartX = 0;
+        let bulkEditModalDragStartY = 0;
+        let bulkEditModalInitialWidth = 0;
+        let bulkEditModalInitialHeight = 0;
+        let bulkEditModalLastDx = 0;
+        let bulkEditModalLastDy = 0;
+        let isBulkEditModalDragging = false;
+        let isBulkEditModalResizing = false;
         function ensureCreateShapePosition() {
           if (createShapeModalWindow) {
             createShapeModalWindow.style.transform = `translate(${createShapeModalOffsetX}px, ${createShapeModalOffsetY}px)`;
@@ -11248,6 +12236,9 @@ function parsePolygonTrace(doc) {
         if (replicateFieldBtn) {
           replicateFieldBtn.addEventListener("click", openReplicateModal);
         }
+        if (bulkEditBtn) {
+          bulkEditBtn.addEventListener("click", openBulkEditModal);
+        }
         if (createShapeTypeSelect) {
           createShapeTypeSelect.addEventListener("change", () => {
             updateCreateShapeDimensionVisibility();
@@ -11361,6 +12352,35 @@ function parsePolygonTrace(doc) {
         if (replicateModalApply) {
           replicateModalApply.addEventListener("click", handleReplicateApply);
         }
+        if (bulkEditModal) {
+          bulkEditModal.addEventListener("click", (event) => {
+            if (event.target?.dataset?.action === "close-bulk-edit") {
+              closeBulkEditModal();
+            }
+          });
+        }
+        if (bulkEditModalClose) {
+          bulkEditModalClose.addEventListener("click", closeBulkEditModal);
+        }
+        if (bulkEditModalCancel) {
+          bulkEditModalCancel.addEventListener("click", closeBulkEditModal);
+        }
+        if (bulkEditModalApply) {
+          bulkEditModalApply.addEventListener("click", applyBulkEditChanges);
+        }
+        if (bulkEditCaseToggles) {
+          bulkEditCaseToggles.addEventListener("click", handleBulkToggleClick);
+        }
+        if (bulkEditShapeToggles) {
+          bulkEditShapeToggles.addEventListener("click", handleBulkToggleClick);
+        }
+          [bulkShapeOutsetInput, bulkShapeMoveXInput, bulkShapeMoveYInput].forEach((input) => {
+            if (input) {
+              input.addEventListener("input", () => {
+                renderFigure();
+              });
+          }
+        });
         createFieldShapeLists.forEach((listObj) => {
           Object.values(listObj).forEach((list) => {
             if (list) {
@@ -11403,6 +12423,9 @@ function parsePolygonTrace(doc) {
           replicateRotationInput,
           replicateRotationOriginXInput,
           replicateRotationOriginYInput,
+          replicateEllipseRatioInput,
+          replicateWidthSineGainInput,
+          replicateHeightSineGainInput,
           replicateScalePercentInput,
           replicateSpeedMinStepInput,
           replicateSpeedMaxStepInput,
@@ -11411,6 +12434,11 @@ function parsePolygonTrace(doc) {
             input.addEventListener("input", () => {
               updateReplicatePreview();
             });
+          }
+        });
+        [replicateWidthSineGainInput, replicateHeightSineGainInput].forEach((input) => {
+          if (input) {
+            input.addEventListener("change", updateReplicatePreview);
           }
         });
         if (replicateTargetToggle) {
@@ -11436,7 +12464,9 @@ function parsePolygonTrace(doc) {
           replicateIncludeCutoutsInput.addEventListener("change", updateReplicatePreview);
         }
         if (replicatePreserveOrientationInput) {
-          replicatePreserveOrientationInput.addEventListener("change", updateReplicatePreview);
+          replicatePreserveOrientationInput.addEventListener("change", () => {
+            updateReplicateSineGainAvailability({ syncPreview: true });
+          });
         }
         if (replicateStaticInputsAutoInput) {
           replicateStaticInputsAutoInput.addEventListener("change", updateReplicatePreview);
@@ -11624,6 +12654,70 @@ function parsePolygonTrace(doc) {
             replicateModalWindow.style.transition = "";
           }
         }
+
+        function startBulkEditModalDrag(event) {
+          if (!bulkEditModalWindow) {
+            return;
+          }
+          isBulkEditModalDragging = true;
+          bulkEditModalDragStartX = event.clientX;
+          bulkEditModalDragStartY = event.clientY;
+          bulkEditModalWindow.style.transition = "none";
+        }
+
+        function updateBulkEditModalDrag(event) {
+          if (!isBulkEditModalDragging || !bulkEditModalWindow) {
+            return;
+          }
+          const dx = event.clientX - bulkEditModalDragStartX;
+          const dy = event.clientY - bulkEditModalDragStartY;
+          bulkEditModalWindow.style.transform = `translate(${bulkEditModalOffsetX + dx}px, ${bulkEditModalOffsetY + dy}px)`;
+          bulkEditModalLastDx = dx;
+          bulkEditModalLastDy = dy;
+        }
+
+        function endBulkEditModalDrag() {
+          if (!isBulkEditModalDragging) {
+            return;
+          }
+          bulkEditModalOffsetX += bulkEditModalLastDx;
+          bulkEditModalOffsetY += bulkEditModalLastDy;
+          isBulkEditModalDragging = false;
+          if (bulkEditModalWindow) {
+            bulkEditModalWindow.style.transition = "";
+          }
+        }
+
+        function startBulkEditModalResize(event) {
+          if (!bulkEditModalWindow) {
+            return;
+          }
+          isBulkEditModalResizing = true;
+          bulkEditModalDragStartX = event.clientX;
+          bulkEditModalDragStartY = event.clientY;
+          bulkEditModalInitialWidth = bulkEditModalWindow.offsetWidth;
+          bulkEditModalInitialHeight = bulkEditModalWindow.offsetHeight;
+          bulkEditModalWindow.style.transition = "none";
+        }
+
+        function updateBulkEditModalResize(event) {
+          if (!isBulkEditModalResizing || !bulkEditModalWindow) {
+            return;
+          }
+          const dx = event.clientX - bulkEditModalDragStartX;
+          const dy = event.clientY - bulkEditModalDragStartY;
+          const width = Math.max(360, bulkEditModalInitialWidth + dx);
+          const height = Math.max(320, bulkEditModalInitialHeight + dy);
+          bulkEditModalWindow.style.width = `${width}px`;
+          bulkEditModalWindow.style.height = `${height}px`;
+        }
+
+        function endBulkEditModalResize() {
+          isBulkEditModalResizing = false;
+          if (bulkEditModalWindow) {
+            bulkEditModalWindow.style.transition = "";
+          }
+        }
         if (createShapeModalHeader) {
           createShapeModalHeader.addEventListener("pointerdown", startCreateShapeDrag);
         }
@@ -11665,6 +12759,21 @@ function parsePolygonTrace(doc) {
             startReplicateModalResize(event);
           });
         }
+        if (bulkEditModalHeader) {
+          bulkEditModalHeader.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            startBulkEditModalDrag(event);
+          });
+        }
+        if (bulkEditModalWindow) {
+          const bulkEditResizeHandle = document.createElement("div");
+          bulkEditResizeHandle.className = "modal-resize-handle";
+          bulkEditModalWindow.appendChild(bulkEditResizeHandle);
+          bulkEditResizeHandle.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
+            startBulkEditModalResize(event);
+          });
+        }
         document.addEventListener("pointermove", (event) => {
           updateCreateShapeDrag(event);
           updateCreateShapeResize(event);
@@ -11672,6 +12781,8 @@ function parsePolygonTrace(doc) {
           updateCreateFieldModalResize(event);
           updateReplicateModalDrag(event);
           updateReplicateModalResize(event);
+          updateBulkEditModalDrag(event);
+          updateBulkEditModalResize(event);
         });
         document.addEventListener("pointerup", () => {
           endCreateShapeDrag();
@@ -11680,6 +12791,8 @@ function parsePolygonTrace(doc) {
           endCreateFieldModalResize();
           endReplicateModalDrag();
           endReplicateModalResize();
+          endBulkEditModalDrag();
+          endBulkEditModalResize();
         });
 
         if (toggleLegendBtn) {
@@ -11732,26 +12845,7 @@ function parsePolygonTrace(doc) {
             reader.onload = () => {
               try {
                 const { shapes, warnings } = parseSvgToShapes(reader.result || "");
-                if (!shapes.length) {
-                  setStatus(
-                    `${file.name} に取り込める Polygon / Rectangle / Circle が見つかりませんでした。`,
-                    "warning"
-                  );
-                  return;
-                }
-                const importedCount = addSvgShapesToState(shapes);
-                renderTriOrbShapes();
-                renderTriOrbShapeCheckboxes();
-                renderFieldsets();
-                renderFigure();
-                if (warnings.length) {
-                  alert(`未対応の SVG 要素: ${warnings.join(", ")}`);
-                }
-                const warningSuffix = warnings.length ? `（未対応: ${warnings.join(", ")}）` : "";
-                setStatus(
-                  `${file.name} から ${importedCount} 件の Shape をインポートしました${warningSuffix}。`,
-                  warnings.length ? "warning" : "ok"
-                );
+                handleSvgImportResult(file.name, shapes, warnings);
               } catch (error) {
                 console.error(error);
                 setStatus(error.message || "SVG の読み込みに失敗しました。", "error");
@@ -11760,6 +12854,26 @@ function parsePolygonTrace(doc) {
               }
             };
             reader.readAsText(file, "utf-8");
+          });
+        }
+
+        if (svgImportApplyBtn) {
+          svgImportApplyBtn.addEventListener("click", applyPendingSvgImport);
+        }
+        if (svgImportCancelBtn) {
+          svgImportCancelBtn.addEventListener("click", () => {
+            closeSvgImportModal();
+            setStatus("SVG インポートをキャンセルしました。", "warning");
+          });
+        }
+        if (svgImportCloseBtn) {
+          svgImportCloseBtn.addEventListener("click", closeSvgImportModal);
+        }
+        if (svgImportModal) {
+          svgImportModal.addEventListener("click", (event) => {
+            if (event.target?.dataset?.action === "close-svg-import") {
+              closeSvgImportModal();
+            }
           });
         }
 
@@ -11825,6 +12939,10 @@ function parsePolygonTrace(doc) {
 
         setupLayoutObservers();
         renderFigure();
+
+        window.__triorbTestApi = {
+          buildTriOrbXml: () => buildTriOrbXml(),
+        };
 
         function setupLayoutObservers() {
           if (typeof ResizeObserver === "undefined") {
