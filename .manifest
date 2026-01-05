@@ -1,5 +1,0 @@
-files:
-  - tools/fusion360_svg_export.ts
-  - README.md
-  - .manifest
-summary: "Fusion 360 TypeScript SVG エクスポートサンプルの構成を記録するマニフェストを追加"
